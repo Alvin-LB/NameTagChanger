@@ -12,10 +12,13 @@ import java.lang.reflect.*;
  * Inspired by I Al Istannen's ReflectionUtil:
  * https://github.com/PerceiveDev/PerceiveCore/blob/master/Reflection/src/main/java/com/perceivedev/perceivecore/reflection/ReflectionUtil.java
  */
+
 @SuppressWarnings({"SameParameterValue", "WeakerAccess", "unused"})
 public class ReflectUtil {
     public static final String NMS_PACKAGE = "net.minecraft.server" + Bukkit.getServer().getClass().getPackage().getName().substring(Bukkit.getServer().getClass().getPackage().getName().lastIndexOf("."));
     public static final String CB_PACKAGE = Bukkit.getServer().getClass().getPackage().getName();
+
+    private static final Field MODIFIERS_FIELD = getDeclaredField(Field.class, "modifiers", true).getOrThrow();
 
     public static ReflectionResponse<Class<?>> getNMSClass(String clazz) {
         Validate.notNull(clazz, "clazz cannot be null");
@@ -86,6 +89,39 @@ public class ReflectUtil {
             }
         }
         return new ReflectionResponse<>(new NoSuchFieldException("No field with type " + type + " and index" + index + " in " + clazz));
+    }
+
+    public static ReflectionResponse<Field> getModifiableFinalStaticField(Class<?> clazz, String fieldName) {
+        ReflectionResponse<Field> response = getField(clazz, fieldName);
+        if (!response.hasResult()) {
+            return response;
+        }
+        Field field = response.getValue();
+        ReflectionResponse<Void> voidResponse = makeFinalStaticFieldModifiable(field);
+        if (!voidResponse.hasResult()) {
+            return new ReflectionResponse<>(voidResponse.getException());
+        }
+        return new ReflectionResponse<>(field);
+    }
+
+    public static ReflectionResponse<Field> getModifiableDeclaredFinalStaticField(Class<?> clazz, String fieldName, boolean setAccessible) {
+        ReflectionResponse<Field> response = getDeclaredField(clazz, fieldName, setAccessible);
+        if (!response.hasResult()) {
+            return response;
+        }
+        Field field = response.getValue();
+        ReflectionResponse<Void> voidResponse = makeFinalStaticFieldModifiable(field);
+        if (!voidResponse.hasResult()) {
+            return new ReflectionResponse<>(voidResponse.getException());
+        }
+        return new ReflectionResponse<>(field);
+    }
+
+    public static ReflectionResponse<Void> makeFinalStaticFieldModifiable(Field field) {
+        Validate.notNull(field, "field cannot be null");
+        Validate.isTrue(Modifier.isStatic(field.getModifiers()), "field is not static");
+        Validate.isTrue(Modifier.isFinal(field.getModifiers()), "field is not final");
+        return setFieldValue(field, MODIFIERS_FIELD, field.getModifiers() &~ Modifier.FINAL);
     }
 
     public static ReflectionResponse<Field> getDeclaredFieldByType(Class<?> clazz, Class<?> type, int index) {
@@ -169,7 +205,7 @@ public class ReflectUtil {
 
     public static ReflectionResponse<Object> getEnumConstant(Class<?> clazz, String constant) {
         Validate.notNull(clazz, "clazz cannot be null");
-        Validate.isTrue(Enum.class.isAssignableFrom(clazz), "Class does not extend Enum");
+        Validate.isTrue(clazz.isEnum(), "clazz is not an Enum");
         Validate.notNull(constant, "constant cannot be null");
         try {
             Field field = clazz.getField(constant);
@@ -252,3 +288,4 @@ public class ReflectUtil {
         }
     }
 }
+

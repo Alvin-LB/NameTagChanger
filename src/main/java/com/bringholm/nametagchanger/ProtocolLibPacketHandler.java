@@ -7,6 +7,7 @@ import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.events.PacketEvent;
 import com.comphenix.protocol.wrappers.*;
 import com.google.common.collect.Lists;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
@@ -15,6 +16,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * The packet handler implementation using ProtocolLib
@@ -36,7 +38,9 @@ public class ProtocolLibPacketHandler extends PacketAdapter implements IPacketHa
         boolean modified = false;
         for (PlayerInfoData infoData : e.getPacket().getPlayerInfoDataLists().read(0)) {
             if (NameTagChanger.INSTANCE.players.containsKey(infoData.getProfile().getUUID())) {
-                PlayerInfoData newInfoData = new PlayerInfoData(new WrappedGameProfile(infoData.getProfile().getUUID(), NameTagChanger.INSTANCE.players.get(infoData.getProfile().getUUID())), infoData.getLatency(), infoData.getGameMode(), infoData.getDisplayName());
+                UUID uuid = infoData.getProfile().getUUID();
+                WrappedChatComponent displayName = infoData.getDisplayName() == null ? WrappedChatComponent.fromText(Bukkit.getPlayer(uuid).getPlayerListName()) : infoData.getDisplayName();
+                PlayerInfoData newInfoData = new PlayerInfoData(new WrappedGameProfile(infoData.getProfile().getUUID(), NameTagChanger.INSTANCE.players.get(uuid)), infoData.getLatency(), infoData.getGameMode(), displayName);
                 list.add(newInfoData);
                 modified = true;
             } else {

@@ -7,6 +7,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
 import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -78,13 +79,26 @@ public class NameTagChanger {
         }
         players.remove(player.getUniqueId());
         for (Player otherPlayer : Bukkit.getOnlinePlayers()) {
-            packetHandler.sendTabListRemovePacket(player, otherPlayer);
-            packetHandler.sendTabListAddPacket(player, player.getName(), otherPlayer);
-            if (otherPlayer.getWorld().equals(player.getWorld())) {
-                packetHandler.sendEntityDestroyPacket(player, otherPlayer);
-                packetHandler.sendNamedEntitySpawnPacket(player, otherPlayer);
+            if (otherPlayer.equals(player)) {
+                continue;
+            }
+            if (otherPlayer.canSee(player)) {
+                packetHandler.sendTabListRemovePacket(player, otherPlayer);
+                packetHandler.sendTabListAddPacket(player, player.getName(), otherPlayer);
+                if (otherPlayer.getWorld().equals(player.getWorld())) {
+                    packetHandler.sendEntityDestroyPacket(player, otherPlayer);
+                    packetHandler.sendNamedEntitySpawnPacket(player, otherPlayer);
+                }
             }
         }
+    }
+
+    /**
+     * Gets all players who currently have changed names.
+     * @return a map containing all the changed players
+     */
+    public Map<UUID, String> getChangedPlayers() {
+        return this.players;
     }
 
     /**
