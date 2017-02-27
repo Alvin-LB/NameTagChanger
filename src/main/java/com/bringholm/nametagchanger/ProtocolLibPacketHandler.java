@@ -7,6 +7,7 @@ import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.events.PacketEvent;
 import com.comphenix.protocol.wrappers.*;
 import com.google.common.collect.Lists;
+import com.mojang.authlib.GameProfile;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
@@ -24,8 +25,9 @@ import java.util.UUID;
  */
 public class ProtocolLibPacketHandler extends PacketAdapter implements IPacketHandler {
 
+    private static final Class<?> ENTITY_PLAYER = ReflectUtil.getNMSClass("EntityPlayer").getOrThrow();
     private static final Method GET_HANDLE = ReflectUtil.getMethod(ReflectUtil.getCBClass("entity.CraftPlayer").getOrThrow(), "getHandle").getOrThrow();
-    private static final Field PING = ReflectUtil.getField(ReflectUtil.getNMSClass("EntityPlayer").getOrThrow(), "ping").getOrThrow();
+    private static final Field PING = ReflectUtil.getField(ENTITY_PLAYER, "ping").getOrThrow();
 
     ProtocolLibPacketHandler(Plugin plugin) {
         super(plugin, PacketType.Play.Server.PLAYER_INFO);
@@ -40,7 +42,9 @@ public class ProtocolLibPacketHandler extends PacketAdapter implements IPacketHa
             if (NameTagChanger.INSTANCE.players.containsKey(infoData.getProfile().getUUID())) {
                 UUID uuid = infoData.getProfile().getUUID();
                 WrappedChatComponent displayName = infoData.getDisplayName() == null ? WrappedChatComponent.fromText(Bukkit.getPlayer(uuid).getPlayerListName()) : infoData.getDisplayName();
-                PlayerInfoData newInfoData = new PlayerInfoData(new WrappedGameProfile(infoData.getProfile().getUUID(), NameTagChanger.INSTANCE.players.get(uuid)), infoData.getLatency(), infoData.getGameMode(), displayName);
+                WrappedGameProfile gameProfile = new WrappedGameProfile(uuid, NameTagChanger.INSTANCE.players.get(uuid));
+                gameProfile.getProperties().putAll(infoData.getProfile().getProperties());
+                PlayerInfoData newInfoData = new PlayerInfoData(gameProfile, infoData.getLatency(), infoData.getGameMode(), displayName);
                 list.add(newInfoData);
                 modified = true;
             } else {
@@ -70,7 +74,10 @@ public class ProtocolLibPacketHandler extends PacketAdapter implements IPacketHa
         PacketContainer packet = ProtocolLibrary.getProtocolManager().createPacket(PacketType.Play.Server.PLAYER_INFO);
         int ping = (int) ReflectUtil.getFieldValue(ReflectUtil.invokeMethod(playerToAdd, GET_HANDLE).getOrThrow(), PING).getOrThrow();
         packet.getPlayerInfoAction().write(0, EnumWrappers.PlayerInfoAction.ADD_PLAYER);
-        PlayerInfoData playerInfoData = new PlayerInfoData(new WrappedGameProfile(playerToAdd.getUniqueId(), newName), ping, EnumWrappers.NativeGameMode.fromBukkit(playerToAdd.getGameMode()), WrappedChatComponent.fromText(playerToAdd.getPlayerListName()));
+        WrappedGameProfile oldGameProfile = WrappedGameProfile.fromPlayer(playerToAdd);
+        WrappedGameProfile gameProfile = new WrappedGameProfile(playerToAdd.getUniqueId(), newName);
+        gameProfile.getProperties().putAll(oldGameProfile.getProperties());
+        PlayerInfoData playerInfoData = new PlayerInfoData(gameProfile, ping, EnumWrappers.NativeGameMode.fromBukkit(playerToAdd.getGameMode()), WrappedChatComponent.fromText(playerToAdd.getPlayerListName()));
         packet.getPlayerInfoDataLists().write(0, Collections.singletonList(playerInfoData));
         try {
             ProtocolLibrary.getProtocolManager().sendServerPacket(seer, packet);

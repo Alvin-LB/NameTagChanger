@@ -228,7 +228,7 @@ public class ReflectUtil {
 
     public static ReflectionResponse<Object> invokeMethod(Object object, Method method, Object... params) {
         Validate.notNull(method, "method cannot be null");
-        Validate.isTrue(object != null || Modifier.isStatic(method.getModifiers()));
+        Validate.isTrue(object != null || Modifier.isStatic(method.getModifiers()), "object cannot be null");
         Validate.notNull(params, "params cannot be null");
         try {
             return new ReflectionResponse<>(method.invoke(object, params));
