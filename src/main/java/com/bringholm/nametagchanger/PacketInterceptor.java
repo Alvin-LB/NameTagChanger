@@ -21,13 +21,15 @@ import java.util.stream.Collectors;
 
 /**
  * A packet listener using netty channel injection.
- * @author AlvinB
  *
  * Based off of TinyProtocol by dmulloy2:
  * https://github.com/aadnk/ProtocolLib/blob/master/modules/TinyProtocol/src/main/java/com/comphenix/tinyprotocol/
+ *
+ * @author AlvinB
  */
 @SuppressWarnings({"SameParameterValue", "WeakerAccess", "SameReturnValue", "unchecked"})
-public class PacketInterceptor implements Listener {
+public abstract class PacketInterceptor implements Listener {
+
 
     private static final Method GET_HANDLE = ReflectUtil.getMethod(ReflectUtil.getCBClass("entity.CraftPlayer").getOrThrow(), "getHandle").getOrThrow();
     private static final Field PLAYER_CONNECTION = ReflectUtil.getFieldByType(ReflectUtil.getNMSClass("EntityPlayer").getOrThrow(), ReflectUtil.getNMSClass("PlayerConnection").getOrThrow(), 0).getOrThrow();
@@ -47,6 +49,7 @@ public class PacketInterceptor implements Listener {
     private static int id = 0;
 
     private final Set<String> packets;
+    private final boolean blackList;
     private final Plugin plugin;
     private final String handlerName;
     private final List<Channel> serverChannels = Lists.newArrayList();
@@ -54,9 +57,21 @@ public class PacketInterceptor implements Listener {
     // as the player is only kept in this list while they are online.
     private final Map<String, Channel> injectedPlayerChannels = Maps.newHashMap();
     private ChannelInboundHandlerAdapter serverChannelHandler;
+    private boolean syncWrite = doSyncWrite();
+    private boolean syncRead = doSyncRead();
+
+    public PacketInterceptor(Plugin plugin) {
+        this(plugin, true);
+    }
+
 
     public PacketInterceptor(Plugin plugin, String... packets) {
+        this(plugin, false, packets);
+    }
+
+    public PacketInterceptor(Plugin plugin, boolean blackList, String... packets) {
         this.packets = Arrays.stream(packets).collect(Collectors.toSet());
+        this.blackList = blackList;
         this.plugin = plugin;
         this.handlerName = "packet_interceptor_" + plugin.getName() + "_" + id++;
         Bukkit.getPluginManager().registerEvents(this, plugin);
@@ -70,11 +85,14 @@ public class PacketInterceptor implements Listener {
 
     @EventHandler
     public void onPlayerJoin(PlayerLoginEvent e) {
+        // We already have the name, but we want to
+        // set the player instance as well.
         injectPlayer(e.getPlayer());
     }
 
     @EventHandler
     public void onPlayerLeave(PlayerQuitEvent e) {
+        // Remove disconnected players.
         if (injectedPlayerChannels.containsKey(e.getPlayer().getName())) {
             injectedPlayerChannels.remove(e.getPlayer().getName());
         }
@@ -105,7 +123,9 @@ public class PacketInterceptor implements Listener {
             protected void initChannel(Channel channel) throws Exception {
                 try {
                     synchronized (networkManagers) {
-                        injectChannel(channel, null);
+                        channel.eventLoop().submit(() -> {
+                            injectChannel(channel, null);
+                        });
                     }
                 } catch (Exception e) {
                     plugin.getLogger().severe("Failed to inject Channel " + channel + " due to " + e + "!");
@@ -179,6 +199,34 @@ public class PacketInterceptor implements Listener {
         HandlerList.unregisterAll(this);
     }
 
+    private boolean doSyncRead() {
+        try {
+            return this.getClass().getMethod("packetReading", Player.class, Object.class, String.class).getDeclaringClass() != PacketInterceptor.class;
+        } catch (NoSuchMethodException e) {
+            // Should not happen
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    private boolean doSyncWrite() {
+        try {
+            return this.getClass().getMethod("packetSending", Player.class, Object.class, String.class).getDeclaringClass() != PacketInterceptor.class;
+        } catch (NoSuchMethodException e) {
+            // Should not happen
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public boolean packetSendingAsync(Player player, Object packet, String packetName) {
+        return true;
+    }
+
+    public boolean packetReadingAsync(Player player, Object packet, String packetName) {
+        return true;
+    }
+
     public boolean packetSending(Player player, Object packet, String packetName) {
         return true;
     }
@@ -192,28 +240,46 @@ public class PacketInterceptor implements Listener {
 
         @Override
         public void write(ChannelHandlerContext context, Object message, ChannelPromise promise) throws Exception {
-            if (!packets.contains(message.getClass().getSimpleName())) {
+            if ((blackList && packets.contains(message.getClass().getSimpleName())) || (!blackList && !packets.contains(message.getClass().getSimpleName()))) {
                 super.write(context, message, promise);
                 return;
             }
-            final boolean[] result = new boolean[2];
-            new BukkitRunnable() {
-                @Override
-                public void run() {
-                    result[0] = packetSending(player, message, message.getClass().getSimpleName());
-                    result[1] = true;
-                    synchronized (result) {
-                        result.notifyAll();
+            if (syncWrite) {
+                final boolean[] result = new boolean[2];
+                new BukkitRunnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            result[0] = packetSending(player, message, message.getClass().getSimpleName());
+                        } catch (Exception e) {
+                            System.out.println("An error occurred while plugin " + plugin.getName() + " was handling packet " + message.getClass().getSimpleName() + "!");
+                            e.printStackTrace();
+                            result[0] = true;
+                        }
+                        result[1] = true;
+                        synchronized (result) {
+                            result.notifyAll();
+                        }
+                    }
+                }.runTask(plugin);
+                synchronized (result) {
+                    while (!result[1]) {
+                        result.wait();
                     }
                 }
-            }.runTask(plugin);
-            synchronized (result) {
-                while (!result[1]) {
-                    result.wait();
+                if (result[0]) {
+                    super.write(context, message, promise);
                 }
-            }
-            if (result[0]) {
-                super.write(context, message, promise);
+            } else {
+                try {
+                    if (packetSendingAsync(player, message, message.getClass().getSimpleName())) {
+                        super.write(context, message, promise);
+                    }
+                } catch (Exception e) {
+                    System.out.println("An error occurred while plugin " + plugin.getName() + " was handling packet " + message.getClass().getSimpleName() + "!");
+                    e.printStackTrace();
+                    super.write(context, message, promise);
+                }
             }
         }
 
@@ -222,28 +288,48 @@ public class PacketInterceptor implements Listener {
             if (PACKET_LOGIN_START.isInstance(message)) {
                 injectedPlayerChannels.put(((GameProfile) ReflectUtil.invokeMethod(message, GET_GAME_PROFILE).getOrThrow()).getName(), context.channel());
             }
-            if (!packets.contains(message.getClass().getSimpleName())) {
+            if ((blackList && packets.contains(message.getClass().getSimpleName())) || (!blackList && !packets.contains(message.getClass().getSimpleName()))) {
                 super.channelRead(context, message);
                 return;
             }
-            final boolean[] result = new boolean[2];
-            new BukkitRunnable() {
-                @Override
-                public void run() {
-                    result[0] = packetReading(player, message, message.getClass().getSimpleName());
-                    result[1] = true;
-                    synchronized (result) {
-                        result.notifyAll();
+            if (syncRead) {
+                // result[0] is for the result of the packet handling, result [1] is whether the
+                // packet handling is finished.
+                final boolean[] result = new boolean[2];
+                new BukkitRunnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            result[0] = packetReading(player, message, message.getClass().getSimpleName());
+                        } catch (Exception e) {
+                            System.out.println("An error occurred while plugin " + plugin.getName() + " was handling packet " + message.getClass().getSimpleName() + "!");
+                            e.printStackTrace();
+                            result[0] = true;
+                        }
+                        result[1] = true;
+                        synchronized (result) {
+                            result.notifyAll();
+                        }
+                    }
+                }.runTask(plugin);
+                synchronized (result) {
+                    while (!result[1]) {
+                        result.wait();
                     }
                 }
-            }.runTask(plugin);
-            synchronized (result) {
-                while (!result[1]) {
-                    result.wait();
+                if (result[0]) {
+                    super.channelRead(context, message);
                 }
-            }
-            if (result[0]) {
-                super.channelRead(context, message);
+            } else {
+                try {
+                    if (packetReadingAsync(player, message, message.getClass().getSimpleName())) {
+                        super.channelRead(context, message);
+                    }
+                } catch (Exception e) {
+                    System.out.println("An error occurred while plugin " + plugin.getName() + " was handling packet " + message.getClass().getSimpleName() + "!");
+                    e.printStackTrace();
+                    super.channelRead(context, message);
+                }
             }
         }
     }

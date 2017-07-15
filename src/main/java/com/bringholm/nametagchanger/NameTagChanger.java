@@ -98,7 +98,7 @@ public class NameTagChanger {
      * @return a map containing all the changed players
      */
     public Map<UUID, String> getChangedPlayers() {
-        return this.players;
+        return new HashMap<>(this.players);
     }
 
     /**
