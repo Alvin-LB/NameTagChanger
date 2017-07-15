@@ -24,14 +24,14 @@
     </repositories>
     <dependencies>
         <dependency>
-            <groupId>org.spigotmc</groupId>
-            <artifactId>spigot</artifactId>
-            <version>1.11.2-R0.1-SNAPSHOT</version>
+            <groupId>org.bukkit</groupId>
+            <artifactId>craftbukkit</artifactId>
+            <version>1.12-R0.1-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>com.comphenix.protocol</groupId>
             <artifactId>ProtocolLib</artifactId>
-            <version>4.2.1-SNAPSHOT</version>
+            <version>4.3.0</version>
         </dependency>
     </dependencies>
     <distributionManagement>
@@ -43,7 +43,7 @@
     <build>
         <resources>
             <resource>
-                <directory>src\main\resources</directory>
+                <directory>${basedir}/src/main/resources</directory>
                 <excludes>
                     <!-- Prevent the test plugin from being included -->
                     <exclude>plugin.yml</exclude>
@@ -94,30 +94,6 @@
                         <exclude>TestPlugin.java</exclude>
                     </excludes>
                 </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-install-plugin</artifactId>
-                <version>2.5.2</version>
-                <executions>
-                    <execution>
-                        <id>install-external</id>
-                        <phase>clean</phase>
-                        <configuration>
-                            <file>${basedir}/run/${buildsoftware}.jar</file>
-                            <repositoryLayout>default</repositoryLayout>
-                            <groupId>org.spigotmc</groupId>
-                            <artifactId>spigot</artifactId>
-                            <version>1.11.2-R0.1-SNAPSHOT</version>
-                            <packaging>jar</packaging>
-                            <generatePom>true</generatePom>
-                            <sources>${basedir}/lib/${buildsoftware}-sources.jar</sources>
-                        </configuration>
-                        <goals>
-                            <goal>install-file</goal>
-                        </goals>
-                    </execution>
-                </executions>
             </plugin>
         </plugins>
     </build>
