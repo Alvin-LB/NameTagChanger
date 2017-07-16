@@ -123,9 +123,7 @@ public abstract class PacketInterceptor implements Listener {
             protected void initChannel(Channel channel) throws Exception {
                 try {
                     synchronized (networkManagers) {
-                        channel.eventLoop().submit(() -> {
-                            injectChannel(channel, null);
-                        });
+                        channel.eventLoop().submit(() -> injectChannel(channel, null));
                     }
                 } catch (Exception e) {
                     plugin.getLogger().severe("Failed to inject Channel " + channel + " due to " + e + "!");
