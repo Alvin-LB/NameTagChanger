@@ -27,8 +27,32 @@ import java.util.stream.Collectors;
 public class ReflectUtil {
     public static final String NMS_PACKAGE = "net.minecraft.server" + Bukkit.getServer().getClass().getPackage().getName().substring(Bukkit.getServer().getClass().getPackage().getName().lastIndexOf("."));
     public static final String CB_PACKAGE = Bukkit.getServer().getClass().getPackage().getName();
+    public static final int MAJOR_VERSION;
+    public static final int MINOR_VERSION;
+    public static final int BUILD;
 
     private static final Field MODIFIERS_FIELD = getDeclaredField(Field.class, "modifiers", true).getOrThrow();
+
+    static {
+        String replacedVersionString = Bukkit.getVersion().replaceAll("[()]", "");
+        String[] split = replacedVersionString.substring(replacedVersionString.indexOf("MC: ") + 4).split("\\.");
+        MAJOR_VERSION = Integer.parseInt(split[0]);
+        MINOR_VERSION = Integer.parseInt(split[1]);
+        if (split.length > 2) {
+            BUILD = Integer.parseInt(split[2]);
+        } else {
+            BUILD = 0;
+        }
+    }
+
+    public static boolean isVersionHigherThan(int majorVersion, int minorVersion, int build) {
+        return majorVersion < MAJOR_VERSION || (majorVersion == MAJOR_VERSION && minorVersion < MINOR_VERSION) ||
+                (majorVersion == MAJOR_VERSION && minorVersion == MINOR_VERSION && build < BUILD);
+    }
+
+    public static boolean isVersionHigherThan(int majorVersion, int minorVersion) {
+        return majorVersion < MAJOR_VERSION || (majorVersion == MAJOR_VERSION && minorVersion < MINOR_VERSION);
+    }
 
     public static ReflectionResponse<Class<?>> getNMSClass(String clazz) {
         Validate.notNull(clazz, "clazz cannot be null");
@@ -299,8 +323,12 @@ public class ReflectUtil {
                         /* Inner classes contain a reference to their outer class instance and not ignoring it would
                            cause the code to recurse infinitely and cause a StackOverflowError.
                            This field is normally named 'this$0' (or with added $'s if a field with that name already exists),
-                           but Mojang's obfuscation tool obfuscates this field and renames it 'a'. */
-                        if (field.getName().startsWith("this$0") || (clazz.getPackage().getName().equals(NMS_PACKAGE) && field.getName().equals("a"))) {
+                           but Mojang's obfuscation tool obfuscates this field and renames it 'a'.
+
+                            Later edit: Actually, the latter about Mojang's obfuscation tool is true, but misleading. Since
+                            CraftBukkit releases are decompiled and recompiled, they get the correct names again.
+                            */
+                        if (field.getName().startsWith("this$0")) {
                             continue;
                         }
                     }
@@ -441,13 +469,27 @@ public class ReflectUtil {
             if (hasResult) {
                 return value;
             } else {
-                throw new RuntimeException(exception);
+                throw new ReflectionException(exception);
             }
         }
 
         @Override
         public String toString() {
             return "ReflectionResponse{value=" + value + ",exception=" + exception + ",hasResult=" + hasResult + "}";
+        }
+    }
+
+    public static class ReflectionException extends RuntimeException {
+        public ReflectionException(String message) {
+            super(message);
+        }
+
+        public ReflectionException(Throwable cause) {
+            super(cause);
+        }
+
+        public ReflectionException(String message, Throwable cause) {
+            super(message, cause);
         }
     }
 
@@ -558,4 +600,3 @@ public class ReflectUtil {
         }
     }
 }
-

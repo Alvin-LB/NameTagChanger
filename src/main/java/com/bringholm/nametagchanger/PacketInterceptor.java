@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
  *
  * @author AlvinB
  */
-@SuppressWarnings({"SameParameterValue", "WeakerAccess", "SameReturnValue", "unchecked"})
+@SuppressWarnings({"SameParameterValue", "WeakerAccess", "SameReturnValue", "unchecked", "unused"})
 public abstract class PacketInterceptor implements Listener {
 
 
@@ -76,11 +76,7 @@ public abstract class PacketInterceptor implements Listener {
         this.handlerName = "packet_interceptor_" + plugin.getName() + "_" + id++;
         Bukkit.getPluginManager().registerEvents(this, plugin);
         injectServer();
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            if (!injectedPlayerChannels.containsKey(player.getName())) {
-                injectPlayer(player);
-            }
-        }
+        Bukkit.getOnlinePlayers().stream().filter(player -> !injectedPlayerChannels.containsKey(player.getName())).forEach(this::injectPlayer);
     }
 
     @EventHandler
@@ -98,7 +94,7 @@ public abstract class PacketInterceptor implements Listener {
         }
     }
 
-    private void injectServer() {
+    protected void injectServer() {
         Object minecraftServer = ReflectUtil.invokeMethod(Bukkit.getServer(), GET_MINECRAFT_SERVER).getOrThrow();
         Object serverConnection = ReflectUtil.getFieldValue(minecraftServer, SERVER_CONNECTION).getOrThrow();
         for (int i = 0; NETWORK_MANAGERS == null || CHANNEL_FUTURES == null; i++) {
@@ -123,10 +119,15 @@ public abstract class PacketInterceptor implements Listener {
             protected void initChannel(Channel channel) throws Exception {
                 try {
                     synchronized (networkManagers) {
-                        channel.eventLoop().submit(() -> injectChannel(channel, null));
+                        if (ReflectUtil.isVersionHigherThan(1, 11, 2)) {
+                            channel.eventLoop().submit(() -> injectChannel(channel, null));
+                        } else {
+                            injectChannel(channel, null);
+                        }
                     }
                 } catch (Exception e) {
-                    plugin.getLogger().severe("Failed to inject Channel " + channel + " due to " + e + "!");
+                    System.out.println("[NameTagChanger] Failed to inject Channel " + channel + " due to " + e + "!");
+                    e.printStackTrace();
                 }
             }
         };
@@ -151,7 +152,7 @@ public abstract class PacketInterceptor implements Listener {
         }
     }
 
-    private void injectPlayer(Player player) {
+    protected void injectPlayer(Player player) {
         Channel channel;
         if (injectedPlayerChannels.containsKey(player.getName())) {
             channel = injectedPlayerChannels.get(player.getName());
@@ -159,7 +160,7 @@ public abstract class PacketInterceptor implements Listener {
             Object handle = ReflectUtil.invokeMethod(player, GET_HANDLE).getOrThrow();
             Object playerConnection = ReflectUtil.getFieldValue(handle, PLAYER_CONNECTION).getOrThrow();
             if (playerConnection == null) {
-                plugin.getLogger().warning("Failed to inject Channel for player " + player.getName() + "!");
+                System.out.println("[NameTagChanger] Failed to inject Channel for player " + player.getName() + "!");
                 return;
             }
             Object networkManager = ReflectUtil.getFieldValue(playerConnection, NETWORK_MANAGER).getOrThrow();
@@ -171,7 +172,7 @@ public abstract class PacketInterceptor implements Listener {
         }
     }
 
-    private void injectChannel(Channel channel, Player player) {
+    protected void injectChannel(Channel channel, Player player) {
         ChannelInterceptor handler = (ChannelInterceptor) channel.pipeline().get(handlerName);
         if (handler == null) {
             handler = new ChannelInterceptor();
@@ -197,7 +198,7 @@ public abstract class PacketInterceptor implements Listener {
         HandlerList.unregisterAll(this);
     }
 
-    private boolean doSyncRead() {
+    protected boolean doSyncRead() {
         try {
             return this.getClass().getMethod("packetReading", Player.class, Object.class, String.class).getDeclaringClass() != PacketInterceptor.class;
         } catch (NoSuchMethodException e) {
@@ -207,7 +208,7 @@ public abstract class PacketInterceptor implements Listener {
         }
     }
 
-    private boolean doSyncWrite() {
+    protected boolean doSyncWrite() {
         try {
             return this.getClass().getMethod("packetSending", Player.class, Object.class, String.class).getDeclaringClass() != PacketInterceptor.class;
         } catch (NoSuchMethodException e) {
@@ -233,8 +234,8 @@ public abstract class PacketInterceptor implements Listener {
         return true;
     }
 
-    private class ChannelInterceptor extends ChannelDuplexHandler {
-        private Player player;
+    protected class ChannelInterceptor extends ChannelDuplexHandler {
+        protected Player player;
 
         @Override
         public void write(ChannelHandlerContext context, Object message, ChannelPromise promise) throws Exception {
@@ -250,7 +251,6 @@ public abstract class PacketInterceptor implements Listener {
                         try {
                             result[0] = packetSending(player, message, message.getClass().getSimpleName());
                         } catch (Exception e) {
-                            System.out.println("An error occurred while plugin " + plugin.getName() + " was handling packet " + message.getClass().getSimpleName() + "!");
                             e.printStackTrace();
                             result[0] = true;
                         }
@@ -260,6 +260,8 @@ public abstract class PacketInterceptor implements Listener {
                         }
                     }
                 }.runTask(plugin);
+                // Should this actually be suppressed?
+                //noinspection SynchronizationOnLocalVariableOrMethodParameter
                 synchronized (result) {
                     while (!result[1]) {
                         result.wait();
@@ -274,7 +276,8 @@ public abstract class PacketInterceptor implements Listener {
                         super.write(context, message, promise);
                     }
                 } catch (Exception e) {
-                    System.out.println("An error occurred while plugin " + plugin.getName() + " was handling packet " + message.getClass().getSimpleName() + "!");
+                    System.out.println("An error occurred while plugin NameTagChanger was handling packet " + message.getClass().getSimpleName() + "!");
+                    System.out.println(ReflectUtil.getPrintableFields(message).getOrThrow());
                     e.printStackTrace();
                     super.write(context, message, promise);
                 }
@@ -300,7 +303,8 @@ public abstract class PacketInterceptor implements Listener {
                         try {
                             result[0] = packetReading(player, message, message.getClass().getSimpleName());
                         } catch (Exception e) {
-                            System.out.println("An error occurred while plugin " + plugin.getName() + " was handling packet " + message.getClass().getSimpleName() + "!");
+                            System.out.println("An error occurred while plugin NameTagChanger was handling packet " + message.getClass().getSimpleName() + "!");
+                            System.out.println(ReflectUtil.getPrintableFields(message).getOrThrow());
                             e.printStackTrace();
                             result[0] = true;
                         }
@@ -310,6 +314,8 @@ public abstract class PacketInterceptor implements Listener {
                         }
                     }
                 }.runTask(plugin);
+                // Should this actually be suppressed?
+                //noinspection SynchronizationOnLocalVariableOrMethodParameter
                 synchronized (result) {
                     while (!result[1]) {
                         result.wait();
@@ -324,7 +330,9 @@ public abstract class PacketInterceptor implements Listener {
                         super.channelRead(context, message);
                     }
                 } catch (Exception e) {
-                    System.out.println("An error occurred while plugin " + plugin.getName() + " was handling packet " + message.getClass().getSimpleName() + "!");
+                    System.out.println("An error occurred while plugin NameTagChanger was handling packet " + message.getClass().getSimpleName() + "!");
+                    ReflectUtil.ReflectionResponse<Map<String, String>> response = ReflectUtil.getPrintableFields(message);
+                    System.out.println(ReflectUtil.getPrintableFields(message));
                     e.printStackTrace();
                     super.channelRead(context, message);
                 }

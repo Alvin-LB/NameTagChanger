@@ -1,5 +1,6 @@
 package com.bringholm.nametagchanger;
 
+import com.bringholm.nametagchanger.metrics.Metrics;
 import com.google.common.collect.Maps;
 import org.apache.commons.lang.Validate;
 import org.bukkit.Bukkit;
@@ -9,12 +10,16 @@ import org.bukkit.plugin.Plugin;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.Callable;
 
 /**
  * Allows changing of a player's overhead name using packet manipulation
  * @author AlvinB
  */
 public class NameTagChanger {
+
+    public static final String VERSION = "1.0-SNAPSHOT";
+
     /**
      * The singleton instance to access all NameTagChanger methods
      */
@@ -140,6 +145,8 @@ public class NameTagChanger {
             packetHandler = new ChannelPacketHandler(plugin);
         }
         enabled = true;
+        Metrics metrics = new Metrics(plugin);
+        metrics.addCustomChart(new Metrics.SimplePie("packet_implementation", () -> packetHandler instanceof ProtocolLibPacketHandler ? "ProtocolLib" : "ChannelInjector"));
     }
 
     /**
