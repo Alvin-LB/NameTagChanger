@@ -1,12 +1,12 @@
 package com.bringholm.nametagchanger;
 
-import com.bringholm.mojangapiutil.v1_1.MojangAPIUtil;
+import com.bringholm.mojangapiutil.v1_2.MojangAPIUtil;
 import com.bringholm.nametagchanger.metrics.Metrics;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-import com.mojang.authlib.GameProfile;
 import org.apache.commons.lang.Validate;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.serialization.ConfigurationSerialization;
@@ -18,7 +18,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
@@ -35,7 +34,7 @@ public class NameTagChanger {
             if (result.wasSuccessful()) {
                 if (result.getValue() != null) {
                     MojangAPIUtil.SkinData data = result.getValue();
-                    return new Skin(data.getUUID(), data.getBase64());
+                    return new Skin(data.getUUID(), data.getBase64(), data.getSignedBase64());
                 }
             } else {
                 throw result.getException();
@@ -55,7 +54,7 @@ public class NameTagChanger {
     public static final NameTagChanger INSTANCE = new NameTagChanger();
 
     private IPacketHandler packetHandler;
-    HashMap<UUID, GameProfileWrapper> players = Maps.newHashMap();
+    HashMap<UUID, GameProfileWrapper> gameProfiles = Maps.newHashMap();
     /**
      * The plugin to assign packet/event listeners to
      */
@@ -76,6 +75,53 @@ public class NameTagChanger {
     }
 
     /**
+     * Sets a players skin.
+     *
+     * NOTE: This does not update the player's skin, so a call to
+     * updatePlayer() is needed for the changes to take effect.
+     *
+     * @param player the player to set the skin of
+     * @param skin the skin
+     */
+    public void setPlayerSkin(Player player, Skin skin) {
+        Validate.isTrue(enabled, "NameTagChanger is disabled");
+        Validate.notNull(player, "player cannot be null");
+        Validate.notNull(skin, "skin cannot be null");
+        Validate.isTrue(!skin.equals(getDefaultSkinFromPlayer(player)), "Skin cannot be the default skin of the player! If you intended to reset the skin, use resetPlayerSkin() instead.");
+        GameProfileWrapper profile = gameProfiles.get(player.getUniqueId());
+        if (profile == null) {
+            profile = packetHandler.getDefaultPlayerProfile(player);
+        }
+        if (skin == Skin.EMPTY_SKIN) {
+            profile.getProperties().removeAll("textures");
+        } else {
+            profile.getProperties().put("textures", new GameProfileWrapper.PropertyWrapper("textures", skin.getBase64(), skin.getSignedBase64()));
+        }
+    }
+
+    /**
+     * Resets a player's skin back to normal
+     *
+     * NOTE: This does not update the player's skin, so a call to
+     * updatePlayer() is needed for the changes to take effect.
+     *
+     * @param player the player to reset
+     */
+    public void resetPlayerSkin(Player player) {
+        Validate.isTrue(enabled, "NameTagChanger is disabled");
+        if (player == null || !gameProfiles.containsKey(player.getUniqueId())) {
+            return;
+        }
+        GameProfileWrapper profile = gameProfiles.get(player.getUniqueId());
+        profile.getProperties().removeAll("textures");
+        GameProfileWrapper defaultProfile = packetHandler.getDefaultPlayerProfile(player);
+        if (defaultProfile.getProperties().containsKey("textures")) {
+            profile.getProperties().putAll("textures", defaultProfile.getProperties().get("textures"));
+        }
+        checkForRemoval(player);
+    }
+
+    /**
      * Changes the name displayed above the player's head. Please note that these names
      * must follow the regular rules of minecraft names (ie maximum 16 characters)
      *
@@ -86,13 +132,108 @@ public class NameTagChanger {
         Validate.isTrue(enabled, "NameTagChanger is disabled");
         Validate.notNull(player, "player cannot be null");
         Validate.notNull(newName, "newName cannot be null");
+        Validate.isTrue(!newName.equals(player.getName()), "The new name cannot be the same of the player's! If you intended to reset the player's name, use resetPlayerName()!");
         Validate.isTrue(newName.length() <= 16, "newName cannot be longer than 16 characters!");
         GameProfileWrapper profile = new GameProfileWrapper(player.getUniqueId(), newName);
-        if (players.containsKey(player.getUniqueId())) {
-            profile.getProperties().putAll(players.get(player.getUniqueId()).getProperties());
+        if (gameProfiles.containsKey(player.getUniqueId())) {
+            profile.getProperties().putAll(gameProfiles.get(player.getUniqueId()).getProperties());
         }
-        players.put(player.getUniqueId(), profile);
+        gameProfiles.put(player.getUniqueId(), profile);
         updatePlayer(player);
+    }
+
+    /**
+     * Resets the player's name back to normal.
+     *
+     * @param player the player
+     */
+    public void resetPlayerName(Player player) {
+        Validate.isTrue(enabled, "NameTagChanger is disabled");
+        if (player == null || !gameProfiles.containsKey(player.getUniqueId())) {
+            return;
+        }
+        GameProfileWrapper oldProfile = gameProfiles.get(player.getUniqueId());
+        GameProfileWrapper newProfile = packetHandler.getDefaultPlayerProfile(player);
+        newProfile.getProperties().removeAll("textures");
+        if (oldProfile.getProperties().containsKey("textures")) {
+            newProfile.getProperties().putAll("textures", oldProfile.getProperties().get("textures"));
+        }
+        gameProfiles.put(player.getUniqueId(), newProfile);
+        updatePlayer(player);
+        checkForRemoval(player);
+    }
+
+    private void checkForRemoval(Player player) {
+        if (gameProfiles.get(player.getUniqueId()).equals(packetHandler.getDefaultPlayerProfile(player))) {
+            gameProfiles.remove(player.getUniqueId());
+        }
+    }
+
+    /**
+     * Gets a player's changed name
+     *
+     * @param player the player to get the changed name of
+     * @return the changed name
+     */
+    public String getChangedName(Player player) {
+        Validate.isTrue(enabled, "NameTagChanger is disabled");
+        GameProfileWrapper profile = gameProfiles.get(player.getUniqueId());
+        // If the name is the same as the original, this means that it is not changed, and
+        // probably that a skin is present.
+        return (profile == null || profile.getName().equals(player.getName()) ? null : profile.getName());
+    }
+
+    /**
+     * Gets a player's changed skin
+     *
+     * @param player the player to get the changed skin of
+     * @return the changed skin
+     */
+    public Skin getChangedSkin(Player player) {
+        Validate.isTrue(enabled, "NameTagChanger is disabled");
+        GameProfileWrapper profile = gameProfiles.get(player.getUniqueId());
+        if (profile == null) {
+            return null;
+        }
+        Skin skin = getSkinFromGameProfile(profile);
+        if (skin.equals(getDefaultSkinFromPlayer(player))) {
+            // The skin is the normal skin for the player,
+            // meaning there is no changed skin
+            return null;
+        } else {
+            return skin;
+        }
+    }
+
+    /**
+     * Gets the default skin from a player, if one exists locally, otherwise Skin.EMPTY_SKIN is returned.
+     *
+     * @param player the player
+     * @return the player's default skin
+     */
+    public Skin getDefaultSkinFromPlayer(Player player) {
+        return getSkinFromGameProfile(packetHandler.getDefaultPlayerProfile(player));
+    }
+
+    /**
+     * Gets the skin from a game profile, if one exists, otherwise Skin.EMPTY_SKIN is returned.
+     *
+     * @param profile the profile
+     * @return the skin of the profile
+     */
+    public Skin getSkinFromGameProfile(GameProfileWrapper profile) {
+        Validate.isTrue(enabled, "NameTagChanger is disabled");
+        Validate.notNull(profile, "profile cannot be null");
+        if (profile.getProperties().containsKey("textures")) {
+            GameProfileWrapper.PropertyWrapper property = Iterables.getFirst(profile.getProperties().get("textures"), null);
+            if (property == null) {
+                return Skin.EMPTY_SKIN;
+            } else {
+                return new Skin(profile.getUUID(), property.getValue(), property.getSignature());
+            }
+        } else {
+            return Skin.EMPTY_SKIN;
+        }
     }
 
     /**
@@ -107,7 +248,7 @@ public class NameTagChanger {
      */
     public void updatePlayer(Player player) {
         Validate.isTrue(enabled, "NameTagChanger is disabled");
-        GameProfileWrapper newProfile = players.get(player.getUniqueId());
+        GameProfileWrapper newProfile = gameProfiles.get(player.getUniqueId());
         if (newProfile == null) {
             newProfile = packetHandler.getDefaultPlayerProfile(player);
         }
@@ -127,24 +268,16 @@ public class NameTagChanger {
     }
 
     /**
-     * Resets the player's name back to normal.
-     * @param player the player
-     */
-    public void resetPlayerName(Player player) {
-        Validate.isTrue(enabled, "NameTagChanger is disabled");
-        if (player == null || !players.containsKey(player.getUniqueId())) {
-            return;
-        }
-        players.remove(player.getUniqueId());
-        updatePlayer(player);
-    }
-
-    /**
      * Gets all players who currently have changed names.
+     *
      * @return an unmodifiable map containing all the changed players
      */
-    public Map<UUID, GameProfileWrapper> getChangedPlayers() {
-        return Collections.unmodifiableMap(this.players);
+    public Map<UUID, String> getChangedPlayers() {
+        Map<UUID, String> changedPlayers = Maps.newHashMap();
+        for (Map.Entry<UUID, GameProfileWrapper> entry : this.gameProfiles.entrySet()) {
+            changedPlayers.put(entry.getKey(), entry.getValue().getName());
+        }
+        return Collections.unmodifiableMap(changedPlayers);
     }
 
     /**
@@ -161,10 +294,10 @@ public class NameTagChanger {
      */
     public void disable() {
         Validate.isTrue(enabled, "NameTagChanger is already disabled");
-        for (UUID uuid : players.keySet()) {
+        for (UUID uuid : gameProfiles.keySet()) {
             resetPlayerName(Bukkit.getPlayer(uuid));
         }
-        players.clear();
+        gameProfiles.clear();
         packetHandler.shutdown();
         packetHandler = null;
         enabled = false;
@@ -221,6 +354,15 @@ public class NameTagChanger {
             public void run() {
                 MojangAPIUtil.Result<Map<String, MojangAPIUtil.Profile>> result = MojangAPIUtil.getUUID(Collections.singletonList(username));
                 if (result.wasSuccessful()) {
+                    if (result.getValue() == null) {
+                        new BukkitRunnable() {
+                            @Override
+                            public void run() {
+                                callBack.callBack(Skin.EMPTY_SKIN, true, null);
+                            }
+                        }.runTask(plugin);
+                        return;
+                    }
                     getSkin(result.getValue().get(username).getUUID(), callBack);
                 } else {
                     new BukkitRunnable() {

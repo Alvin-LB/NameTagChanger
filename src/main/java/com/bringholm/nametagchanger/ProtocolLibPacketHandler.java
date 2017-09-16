@@ -1,6 +1,6 @@
 package com.bringholm.nametagchanger;
 
-import com.bringholm.reflectutil.v1_1.ReflectUtil;
+import com.bringholm.reflectutil.v1_1_1.ReflectUtil;
 import com.comphenix.protocol.PacketType;
 import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.events.PacketAdapter;
@@ -8,7 +8,6 @@ import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.events.PacketEvent;
 import com.comphenix.protocol.wrappers.*;
 import com.google.common.collect.Lists;
-import com.mojang.authlib.GameProfile;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
@@ -38,10 +37,10 @@ public class ProtocolLibPacketHandler extends PacketAdapter implements IPacketHa
         List<PlayerInfoData> list = Lists.newArrayList();
         boolean modified = false;
         for (PlayerInfoData infoData : e.getPacket().getPlayerInfoDataLists().read(0)) {
-            if (NameTagChanger.INSTANCE.players.containsKey(infoData.getProfile().getUUID())) {
+            if (NameTagChanger.INSTANCE.gameProfiles.containsKey(infoData.getProfile().getUUID())) {
                 UUID uuid = infoData.getProfile().getUUID();
                 WrappedChatComponent displayName = infoData.getDisplayName() == null ? WrappedChatComponent.fromText(Bukkit.getPlayer(uuid).getPlayerListName()) : infoData.getDisplayName();
-                WrappedGameProfile gameProfile = getProtocolLibProfileWrapper(NameTagChanger.INSTANCE.players.get(uuid));
+                WrappedGameProfile gameProfile = getProtocolLibProfileWrapper(NameTagChanger.INSTANCE.gameProfiles.get(uuid));
                 PlayerInfoData newInfoData = new PlayerInfoData(gameProfile, infoData.getLatency(), infoData.getGameMode(), displayName);
                 list.add(newInfoData);
                 modified = true;

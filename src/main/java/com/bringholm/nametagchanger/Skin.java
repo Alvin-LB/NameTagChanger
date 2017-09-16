@@ -28,21 +28,32 @@ public class Skin implements ConfigurationSerializable {
 
     private UUID uuid;
     private String base64;
+    private String signedBase64;
 
     /**
      * Initializes this class with the specified skin.
      *
      * @param uuid The uuid of the user who this skin belongs to
      * @param base64 the base64 data of the skin, as returned by Mojang's servers.
+     * @param signedBase64 the signed data of the skin, as returned by Mojang's servers.
      */
-    public Skin(UUID uuid, String base64) {
+    public Skin(UUID uuid, String base64, String signedBase64) {
         Validate.notNull(uuid, "uuid cannot be null");
         Validate.notNull(base64, "base64 cannot be null");
         this.uuid = uuid;
         this.base64 = base64;
+        this.signedBase64 = signedBase64;
     }
 
     private Skin() {}
+
+    public boolean hasSignedBase64() {
+        return signedBase64 != null;
+    }
+
+    public String getSignedBase64() {
+        return signedBase64;
+    }
 
     public String getBase64() {
         return base64;
@@ -61,17 +72,17 @@ public class Skin implements ConfigurationSerializable {
             return false;
         }
         Skin skin = (Skin) obj;
-        return skin.base64.equals(this.base64) && skin.uuid.equals(this.uuid);
+        return skin.base64.equals(this.base64) && skin.uuid.equals(this.uuid) && skin.signedBase64.equals(this.signedBase64);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(this.base64, this.uuid);
+        return Objects.hash(this.base64, this.uuid, this.signedBase64);
     }
 
     @Override
     public String toString() {
-        return "Skin{uuid=" + uuid + ",base64=" + base64 + "}";
+        return "Skin{uuid=" + uuid + ",base64=" + base64 + ",signedBase64=" + signedBase64 + "}";
     }
 
     @Override
@@ -82,6 +93,9 @@ public class Skin implements ConfigurationSerializable {
         } else {
             map.put("uuid", uuid);
             map.put("base64", base64);
+            if (hasSignedBase64()) {
+                map.put("signedBase64", signedBase64);
+            }
         }
         return map;
     }
@@ -90,7 +104,7 @@ public class Skin implements ConfigurationSerializable {
         if (map.containsKey("empty")) {
             return EMPTY_SKIN;
         } else {
-            return new Skin(UUID.fromString((String) map.get("uuid")), (String) map.get("base64"));
+            return new Skin(UUID.fromString((String) map.get("uuid")), (String) map.get("base64"), (map.containsKey("signedBase64") ? (String) map.get("signedBase64") : null));
         }
     }
 }

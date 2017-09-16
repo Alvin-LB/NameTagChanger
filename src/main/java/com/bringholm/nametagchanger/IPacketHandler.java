@@ -1,6 +1,5 @@
 package com.bringholm.nametagchanger;
 
-import com.mojang.authlib.GameProfile;
 import org.bukkit.entity.Player;
 
 /**

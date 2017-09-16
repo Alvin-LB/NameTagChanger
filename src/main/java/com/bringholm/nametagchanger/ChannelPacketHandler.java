@@ -1,7 +1,7 @@
 package com.bringholm.nametagchanger;
 
 import com.bringholm.packetinterceptor.v1_0.PacketInterceptor;
-import com.bringholm.reflectutil.v1_1.ReflectUtil;
+import com.bringholm.reflectutil.v1_1_1.ReflectUtil;
 import com.google.common.collect.Lists;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
@@ -66,10 +66,10 @@ public class ChannelPacketHandler extends PacketInterceptor implements IPacketHa
         for (Object infoData : (List<Object>) ReflectUtil.getFieldValue(packet, PLAYER_DATA_LIST).getOrThrow()) {
             GameProfileWrapper gameProfile = GameProfileWrapper.fromHandle(ReflectUtil.invokeMethod(infoData, GET_GAME_PROFILE).getOrThrow());
             UUID uuid = gameProfile.getUUID();
-            if (NameTagChanger.INSTANCE.players.containsKey(uuid)) {
+            if (NameTagChanger.INSTANCE.gameProfiles.containsKey(uuid)) {
                 Object prevDisplayName = ReflectUtil.invokeMethod(infoData, GET_DISPLAY_NAME).getOrThrow();
                 Object displayName = prevDisplayName == null ? ReflectUtil.invokeConstructor(CHAT_COMPONENT_TEXT_CONSTRUCTOR, Bukkit.getPlayer(uuid).getPlayerListName()).getOrThrow() : ReflectUtil.invokeMethod(infoData, GET_DISPLAY_NAME).getOrThrow();
-                GameProfileWrapper newGameProfile = NameTagChanger.INSTANCE.players.get(uuid);
+                GameProfileWrapper newGameProfile = NameTagChanger.INSTANCE.gameProfiles.get(uuid);
                 Object newInfoData = ReflectUtil.invokeConstructor(PLAYER_INFO_DATA_CONSTRUCTOR, packet, newGameProfile.getHandle(),
                         ReflectUtil.invokeMethod(infoData, GET_LATENCY).getOrThrow(), ReflectUtil.invokeMethod(infoData, GET_GAMEMODE).getOrThrow(), displayName).getOrThrow();
                 list.add(newInfoData);
