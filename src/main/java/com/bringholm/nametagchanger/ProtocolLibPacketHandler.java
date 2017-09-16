@@ -8,6 +8,7 @@ import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.events.PacketEvent;
 import com.comphenix.protocol.wrappers.*;
 import com.google.common.collect.Lists;
+import com.mojang.authlib.GameProfile;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
@@ -15,9 +16,7 @@ import org.bukkit.plugin.Plugin;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.Collections;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 /**
  * The packet handler implementation using ProtocolLib
@@ -42,8 +41,7 @@ public class ProtocolLibPacketHandler extends PacketAdapter implements IPacketHa
             if (NameTagChanger.INSTANCE.players.containsKey(infoData.getProfile().getUUID())) {
                 UUID uuid = infoData.getProfile().getUUID();
                 WrappedChatComponent displayName = infoData.getDisplayName() == null ? WrappedChatComponent.fromText(Bukkit.getPlayer(uuid).getPlayerListName()) : infoData.getDisplayName();
-                WrappedGameProfile gameProfile = new WrappedGameProfile(uuid, NameTagChanger.INSTANCE.players.get(uuid));
-                gameProfile.getProperties().putAll(infoData.getProfile().getProperties());
+                WrappedGameProfile gameProfile = getProtocolLibProfileWrapper(NameTagChanger.INSTANCE.players.get(uuid));
                 PlayerInfoData newInfoData = new PlayerInfoData(gameProfile, infoData.getLatency(), infoData.getGameMode(), displayName);
                 list.add(newInfoData);
                 modified = true;
@@ -70,14 +68,11 @@ public class ProtocolLibPacketHandler extends PacketAdapter implements IPacketHa
     }
 
     @Override
-    public void sendTabListAddPacket(Player playerToAdd, String newName, Player seer) {
+    public void sendTabListAddPacket(Player playerToAdd, GameProfileWrapper newProfile, Player seer) {
         PacketContainer packet = ProtocolLibrary.getProtocolManager().createPacket(PacketType.Play.Server.PLAYER_INFO);
         int ping = (int) ReflectUtil.getFieldValue(ReflectUtil.invokeMethod(playerToAdd, GET_HANDLE).getOrThrow(), PING).getOrThrow();
         packet.getPlayerInfoAction().write(0, EnumWrappers.PlayerInfoAction.ADD_PLAYER);
-        WrappedGameProfile oldGameProfile = WrappedGameProfile.fromPlayer(playerToAdd);
-        WrappedGameProfile gameProfile = new WrappedGameProfile(playerToAdd.getUniqueId(), newName);
-        gameProfile.getProperties().putAll(oldGameProfile.getProperties());
-        PlayerInfoData playerInfoData = new PlayerInfoData(gameProfile, ping, EnumWrappers.NativeGameMode.fromBukkit(playerToAdd.getGameMode()), WrappedChatComponent.fromText(playerToAdd.getPlayerListName()));
+        PlayerInfoData playerInfoData = new PlayerInfoData(getProtocolLibProfileWrapper(newProfile), ping, EnumWrappers.NativeGameMode.fromBukkit(playerToAdd.getGameMode()), WrappedChatComponent.fromText(playerToAdd.getPlayerListName()));
         packet.getPlayerInfoDataLists().write(0, Collections.singletonList(playerInfoData));
         try {
             ProtocolLibrary.getProtocolManager().sendServerPacket(seer, packet);
@@ -112,6 +107,28 @@ public class ProtocolLibPacketHandler extends PacketAdapter implements IPacketHa
         } catch (InvocationTargetException e) {
             e.printStackTrace();
         }
+    }
+
+    @Override
+    public GameProfileWrapper getDefaultPlayerProfile(Player player) {
+        WrappedGameProfile wrappedGameProfile = WrappedGameProfile.fromPlayer(player);
+        GameProfileWrapper wrapper = new GameProfileWrapper(wrappedGameProfile.getUUID(), wrappedGameProfile.getName());
+        for (Map.Entry<String, Collection<WrappedSignedProperty>> entry : wrappedGameProfile.getProperties().asMap().entrySet()) {
+            for (WrappedSignedProperty wrappedSignedProperty : entry.getValue()) {
+                wrapper.getProperties().put(entry.getKey(), new GameProfileWrapper.PropertyWrapper(wrappedSignedProperty.getName(), wrappedSignedProperty.getValue(), wrappedSignedProperty.getSignature()));
+            }
+        }
+        return wrapper;
+    }
+
+    private static WrappedGameProfile getProtocolLibProfileWrapper(GameProfileWrapper wrapper) {
+        WrappedGameProfile wrappedGameProfile = new WrappedGameProfile(wrapper.getUUID(), wrapper.getName());
+        for (Map.Entry<String, Collection<GameProfileWrapper.PropertyWrapper>> entry : wrapper.getProperties().asMap().entrySet()) {
+            for (GameProfileWrapper.PropertyWrapper propertyWrapper : entry.getValue()) {
+                wrappedGameProfile.getProperties().put(entry.getKey(), new WrappedSignedProperty(propertyWrapper.getName(), propertyWrapper.getValue(), propertyWrapper.getSignature()));
+            }
+        }
+        return wrappedGameProfile;
     }
 
     @Override

@@ -1,5 +1,6 @@
 package com.bringholm.nametagchanger;
 
+import com.mojang.authlib.GameProfile;
 import org.bukkit.entity.Player;
 
 /**
@@ -9,11 +10,13 @@ import org.bukkit.entity.Player;
 public interface IPacketHandler {
     void sendTabListRemovePacket(Player playerToRemove, Player seer);
 
-    void sendTabListAddPacket(Player playerToAdd, String newName, Player seer);
+    void sendTabListAddPacket(Player playerToAdd, GameProfileWrapper newProfile, Player seer);
 
     void sendEntityDestroyPacket(Player playerToDestroy, Player seer);
 
     void sendNamedEntitySpawnPacket(Player playerToSpawn, Player seer);
+
+    GameProfileWrapper getDefaultPlayerProfile(Player player);
 
     void shutdown();
 }

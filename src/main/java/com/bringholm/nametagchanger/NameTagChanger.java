@@ -6,6 +6,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.Maps;
+import com.mojang.authlib.GameProfile;
 import org.apache.commons.lang.Validate;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.serialization.ConfigurationSerialization;
@@ -54,7 +55,7 @@ public class NameTagChanger {
     public static final NameTagChanger INSTANCE = new NameTagChanger();
 
     private IPacketHandler packetHandler;
-    HashMap<UUID, String> players = Maps.newHashMap();
+    HashMap<UUID, GameProfileWrapper> players = Maps.newHashMap();
     /**
      * The plugin to assign packet/event listeners to
      */
@@ -77,6 +78,7 @@ public class NameTagChanger {
     /**
      * Changes the name displayed above the player's head. Please note that these names
      * must follow the regular rules of minecraft names (ie maximum 16 characters)
+     *
      * @param player the player
      * @param newName the new name of the player
      */
@@ -85,14 +87,37 @@ public class NameTagChanger {
         Validate.notNull(player, "player cannot be null");
         Validate.notNull(newName, "newName cannot be null");
         Validate.isTrue(newName.length() <= 16, "newName cannot be longer than 16 characters!");
-        players.put(player.getUniqueId(), newName);
+        GameProfileWrapper profile = new GameProfileWrapper(player.getUniqueId(), newName);
+        if (players.containsKey(player.getUniqueId())) {
+            profile.getProperties().putAll(players.get(player.getUniqueId()).getProperties());
+        }
+        players.put(player.getUniqueId(), profile);
+        updatePlayer(player);
+    }
+
+    /**
+     * Sends packets to update a player to reflect any changes in skin or
+     * name.
+     *
+     * NOTE: This is done automatically by #changePlayerName and #resetPlayerName,
+     * so the only real use for this is when changing skins, as those methods
+     * do not automatically update.
+     *
+     * @param player the player to update
+     */
+    public void updatePlayer(Player player) {
+        Validate.isTrue(enabled, "NameTagChanger is disabled");
+        GameProfileWrapper newProfile = players.get(player.getUniqueId());
+        if (newProfile == null) {
+            newProfile = packetHandler.getDefaultPlayerProfile(player);
+        }
         for (Player otherPlayer : Bukkit.getOnlinePlayers()) {
             if (otherPlayer.equals(player)) {
                 continue;
             }
             if (otherPlayer.canSee(player)) {
                 packetHandler.sendTabListRemovePacket(player, otherPlayer);
-                packetHandler.sendTabListAddPacket(player, newName, otherPlayer);
+                packetHandler.sendTabListAddPacket(player, newProfile, otherPlayer);
                 if (otherPlayer.getWorld().equals(player.getWorld())) {
                     packetHandler.sendEntityDestroyPacket(player, otherPlayer);
                     packetHandler.sendNamedEntitySpawnPacket(player, otherPlayer);
@@ -111,26 +136,14 @@ public class NameTagChanger {
             return;
         }
         players.remove(player.getUniqueId());
-        for (Player otherPlayer : Bukkit.getOnlinePlayers()) {
-            if (otherPlayer.equals(player)) {
-                continue;
-            }
-            if (otherPlayer.canSee(player)) {
-                packetHandler.sendTabListRemovePacket(player, otherPlayer);
-                packetHandler.sendTabListAddPacket(player, player.getName(), otherPlayer);
-                if (otherPlayer.getWorld().equals(player.getWorld())) {
-                    packetHandler.sendEntityDestroyPacket(player, otherPlayer);
-                    packetHandler.sendNamedEntitySpawnPacket(player, otherPlayer);
-                }
-            }
-        }
+        updatePlayer(player);
     }
 
     /**
      * Gets all players who currently have changed names.
      * @return an unmodifiable map containing all the changed players
      */
-    public Map<UUID, String> getChangedPlayers() {
+    public Map<UUID, GameProfileWrapper> getChangedPlayers() {
         return Collections.unmodifiableMap(this.players);
     }
 

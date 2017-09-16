@@ -3,7 +3,6 @@ package com.bringholm.nametagchanger;
 import com.bringholm.packetinterceptor.v1_0.PacketInterceptor;
 import com.bringholm.reflectutil.v1_1.ReflectUtil;
 import com.google.common.collect.Lists;
-import com.mojang.authlib.GameProfile;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
@@ -25,10 +24,12 @@ import java.util.logging.Level;
 @SuppressWarnings("unchecked")
 public class ChannelPacketHandler extends PacketInterceptor implements IPacketHandler {
 
+    private static final Class<?> GAME_PROFILE_CLASS = ReflectUtil.getClass("com.mojang.authlib.GameProfile").getOrThrow();
+
     private static final Class<?> PLAYER_INFO_DATA_CLASS = ReflectUtil.getNMSClass("PacketPlayOutPlayerInfo$PlayerInfoData").getOrThrow();
     private static final Field PLAYER_DATA_LIST = ReflectUtil.getDeclaredFieldByType(ReflectUtil.getNMSClass("PacketPlayOutPlayerInfo").getOrThrow(), List.class, 0, true).getOrThrow();
-    private static final Method GET_GAME_PROFILE = ReflectUtil.getMethodByType(PLAYER_INFO_DATA_CLASS, GameProfile.class, 0).getOrThrow();
-    private static final Constructor<?> PLAYER_INFO_DATA_CONSTRUCTOR = ReflectUtil.getConstructor(PLAYER_INFO_DATA_CLASS, ReflectUtil.getNMSClass("PacketPlayOutPlayerInfo").getOrThrow(), GameProfile.class,
+    private static final Method GET_GAME_PROFILE = ReflectUtil.getMethodByType(PLAYER_INFO_DATA_CLASS, GAME_PROFILE_CLASS, 0).getOrThrow();
+    private static final Constructor<?> PLAYER_INFO_DATA_CONSTRUCTOR = ReflectUtil.getConstructor(PLAYER_INFO_DATA_CLASS, ReflectUtil.getNMSClass("PacketPlayOutPlayerInfo").getOrThrow(), GAME_PROFILE_CLASS,
             int.class, ReflectUtil.getNMSClass("EnumGamemode").getOrThrow(), ReflectUtil.getNMSClass("IChatBaseComponent").getOrThrow()).getOrThrow();
     private static final Method GET_LATENCY = ReflectUtil.getMethodByType(PLAYER_INFO_DATA_CLASS, int.class, 0).getOrThrow();
     private static final Method GET_GAMEMODE = ReflectUtil.getMethodByType(PLAYER_INFO_DATA_CLASS, ReflectUtil.getNMSClass("EnumGamemode").getOrThrow(), 0).getOrThrow();
@@ -43,7 +44,7 @@ public class ChannelPacketHandler extends PacketInterceptor implements IPacketHa
     private static final Method SEND_PACKET = ReflectUtil.getMethod(ReflectUtil.getNMSClass("PlayerConnection").getOrThrow(), "sendPacket", ReflectUtil.getNMSClass("Packet").getOrThrow()).getOrThrow();
 
     private static final Constructor<?> PACKET_PLAYER_INFO_CONSTRUCTOR_EMPTY = ReflectUtil.getConstructor(ReflectUtil.getNMSClass("PacketPlayOutPlayerInfo").getOrThrow()).getOrThrow();
-    private static final Method ENTITY_PLAYER_GET_GAME_PROFILE = ReflectUtil.getMethodByType(ENTITY_PLAYER, GameProfile.class, 0).getOrThrow();
+    private static final Method ENTITY_PLAYER_GET_GAME_PROFILE = ReflectUtil.getMethodByType(ENTITY_PLAYER, GAME_PROFILE_CLASS, 0).getOrThrow();
     private static final Field PING = ReflectUtil.getField(ENTITY_PLAYER, "ping").getOrThrow();
     private static final Method GET_BY_ID = ReflectUtil.getMethod(ReflectUtil.getNMSClass("EnumGamemode").getOrThrow(), "getById", int.class).getOrThrow();
     private static final Constructor<?> CHAT_COMPONENT_TEXT_CONSTRUCTOR = ReflectUtil.getConstructor(ReflectUtil.getNMSClass("ChatComponentText").getOrThrow(), String.class).getOrThrow();
@@ -63,14 +64,13 @@ public class ChannelPacketHandler extends PacketInterceptor implements IPacketHa
         List<Object> list = Lists.newArrayList();
         boolean modified = false;
         for (Object infoData : (List<Object>) ReflectUtil.getFieldValue(packet, PLAYER_DATA_LIST).getOrThrow()) {
-            GameProfile gameProfile = (GameProfile) ReflectUtil.invokeMethod(infoData, GET_GAME_PROFILE).getOrThrow();
-            UUID uuid = gameProfile.getId();
+            GameProfileWrapper gameProfile = GameProfileWrapper.fromHandle(ReflectUtil.invokeMethod(infoData, GET_GAME_PROFILE).getOrThrow());
+            UUID uuid = gameProfile.getUUID();
             if (NameTagChanger.INSTANCE.players.containsKey(uuid)) {
                 Object prevDisplayName = ReflectUtil.invokeMethod(infoData, GET_DISPLAY_NAME).getOrThrow();
                 Object displayName = prevDisplayName == null ? ReflectUtil.invokeConstructor(CHAT_COMPONENT_TEXT_CONSTRUCTOR, Bukkit.getPlayer(uuid).getPlayerListName()).getOrThrow() : ReflectUtil.invokeMethod(infoData, GET_DISPLAY_NAME).getOrThrow();
-                GameProfile newGameProfile = new GameProfile(uuid, NameTagChanger.INSTANCE.players.get(uuid));
-                newGameProfile.getProperties().putAll(gameProfile.getProperties());
-                Object newInfoData = ReflectUtil.invokeConstructor(PLAYER_INFO_DATA_CONSTRUCTOR, packet, newGameProfile,
+                GameProfileWrapper newGameProfile = NameTagChanger.INSTANCE.players.get(uuid);
+                Object newInfoData = ReflectUtil.invokeConstructor(PLAYER_INFO_DATA_CONSTRUCTOR, packet, newGameProfile.getHandle(),
                         ReflectUtil.invokeMethod(infoData, GET_LATENCY).getOrThrow(), ReflectUtil.invokeMethod(infoData, GET_GAMEMODE).getOrThrow(), displayName).getOrThrow();
                 list.add(newInfoData);
                 modified = true;
@@ -105,12 +105,10 @@ public class ChannelPacketHandler extends PacketInterceptor implements IPacketHa
     }
 
     @Override
-    public void sendTabListAddPacket(Player playerToAdd, String newName, Player seer) {
+    public void sendTabListAddPacket(Player playerToAdd, GameProfileWrapper newProfile, Player seer) {
         Object packet = ReflectUtil.invokeConstructor(PACKET_PLAYER_INFO_CONSTRUCTOR_EMPTY).getOrThrow();
         Object entityPlayer = ReflectUtil.invokeMethod(playerToAdd, GET_HANDLE).getOrThrow();
-        GameProfile gameProfile = new GameProfile(playerToAdd.getUniqueId(), newName);
-        gameProfile.getProperties().putAll(((GameProfile) ReflectUtil.invokeMethod(entityPlayer, ENTITY_PLAYER_GET_GAME_PROFILE).getOrThrow()).getProperties());
-        Object infoData = ReflectUtil.invokeConstructor(PLAYER_INFO_DATA_CONSTRUCTOR, packet, gameProfile,
+        Object infoData = ReflectUtil.invokeConstructor(PLAYER_INFO_DATA_CONSTRUCTOR, packet, newProfile.getHandle(),
                 ReflectUtil.getFieldValue(entityPlayer, PING).getOrThrow(), getEnumGameMode(playerToAdd.getGameMode()),
                 ReflectUtil.invokeConstructor(CHAT_COMPONENT_TEXT_CONSTRUCTOR, playerToAdd.getPlayerListName()).getOrThrow()).getOrThrow();
         ReflectUtil.setFieldValue(packet, PLAYER_DATA_LIST, Collections.singletonList(infoData)).getOrThrow();
@@ -133,6 +131,12 @@ public class ChannelPacketHandler extends PacketInterceptor implements IPacketHa
     @Override
     public void shutdown() {
         close();
+    }
+
+    @Override
+    public GameProfileWrapper getDefaultPlayerProfile(Player player) {
+        Object entityPlayer = ReflectUtil.invokeMethod(player, GET_HANDLE).getOrThrow();
+        return GameProfileWrapper.fromHandle(ReflectUtil.invokeMethod(entityPlayer, ENTITY_PLAYER_GET_GAME_PROFILE).getOrThrow());
     }
 
     private void sendPacket(Player player, Object packet) {
