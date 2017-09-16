@@ -34,6 +34,9 @@ public class ProtocolLibPacketHandler extends PacketAdapter implements IPacketHa
 
     @Override
     public void onPacketSending(PacketEvent e) {
+        if (NameTagChanger.INSTANCE.sendingPackets) {
+            return;
+        }
         List<PlayerInfoData> list = Lists.newArrayList();
         boolean modified = false;
         for (PlayerInfoData infoData : e.getPacket().getPlayerInfoDataLists().read(0)) {

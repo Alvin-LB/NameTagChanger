@@ -53,6 +53,7 @@ public class NameTagChanger {
      */
     public static final NameTagChanger INSTANCE = new NameTagChanger();
 
+    boolean sendingPackets;
     private IPacketHandler packetHandler;
     HashMap<UUID, GameProfileWrapper> gameProfiles = Maps.newHashMap();
     /**
@@ -92,11 +93,11 @@ public class NameTagChanger {
         if (profile == null) {
             profile = packetHandler.getDefaultPlayerProfile(player);
         }
-        if (skin == Skin.EMPTY_SKIN) {
-            profile.getProperties().removeAll("textures");
-        } else {
+        profile.getProperties().removeAll("textures");
+        if (skin != Skin.EMPTY_SKIN) {
             profile.getProperties().put("textures", new GameProfileWrapper.PropertyWrapper("textures", skin.getBase64(), skin.getSignedBase64()));
         }
+        gameProfiles.put(player.getUniqueId(), profile);
     }
 
     /**
@@ -252,6 +253,7 @@ public class NameTagChanger {
         if (newProfile == null) {
             newProfile = packetHandler.getDefaultPlayerProfile(player);
         }
+        sendingPackets = true;
         for (Player otherPlayer : Bukkit.getOnlinePlayers()) {
             if (otherPlayer.equals(player)) {
                 continue;
@@ -265,6 +267,7 @@ public class NameTagChanger {
                 }
             }
         }
+        sendingPackets = false;
     }
 
     /**
@@ -342,6 +345,8 @@ public class NameTagChanger {
      * to Mojang's servers, a call back mechanism using the SkinCallBack
      * class is implemented. This call back allows you to also handle
      * any errors that might have occurred while fetching the skin.
+     * If no users with the specified username can be found, the
+     * skin passed to the callback will be Skin.EMPTY_SKIN.
      *
      * The call back will always be fired on the main thread.
      *
@@ -354,7 +359,7 @@ public class NameTagChanger {
             public void run() {
                 MojangAPIUtil.Result<Map<String, MojangAPIUtil.Profile>> result = MojangAPIUtil.getUUID(Collections.singletonList(username));
                 if (result.wasSuccessful()) {
-                    if (result.getValue() == null) {
+                    if (result.getValue() == null || result.getValue().isEmpty()) {
                         new BukkitRunnable() {
                             @Override
                             public void run() {
@@ -363,7 +368,12 @@ public class NameTagChanger {
                         }.runTask(plugin);
                         return;
                     }
-                    getSkin(result.getValue().get(username).getUUID(), callBack);
+                    for (Map.Entry<String, MojangAPIUtil.Profile> entry : result.getValue().entrySet()) {
+                        if (entry.getKey().equalsIgnoreCase(username)) {
+                            getSkin(entry.getValue().getUUID(), callBack);
+                            return;
+                        }
+                    }
                 } else {
                     new BukkitRunnable() {
                         @Override

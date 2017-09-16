@@ -61,6 +61,9 @@ public class ChannelPacketHandler extends PacketInterceptor implements IPacketHa
 
     @Override
     public boolean packetSending(Player player, Object packet, String packetName) {
+        if (NameTagChanger.INSTANCE.sendingPackets) {
+            return true;
+        }
         List<Object> list = Lists.newArrayList();
         boolean modified = false;
         for (Object infoData : (List<Object>) ReflectUtil.getFieldValue(packet, PLAYER_DATA_LIST).getOrThrow()) {

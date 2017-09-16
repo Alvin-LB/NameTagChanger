@@ -87,7 +87,7 @@ public class GameProfileWrapper {
         // Implement reflection when we need to
         @SuppressWarnings("ConstantConditions")
         public static PropertyWrapper fromHandle(Object object) {
-            Validate.isTrue(object instanceof PropertyWrapper, "object is not a Property");
+            Validate.isTrue(object instanceof Property, "object " + object + " is not a Property");
             Property property = (Property) object;
             return new PropertyWrapper(property.getName(), property.getValue(), property.getSignature());
         }

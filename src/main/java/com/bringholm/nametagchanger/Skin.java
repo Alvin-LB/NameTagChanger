@@ -72,6 +72,9 @@ public class Skin implements ConfigurationSerializable {
             return false;
         }
         Skin skin = (Skin) obj;
+        if (skin == Skin.EMPTY_SKIN) {
+            return this == Skin.EMPTY_SKIN;
+        }
         return skin.base64.equals(this.base64) && skin.uuid.equals(this.uuid) && skin.signedBase64.equals(this.signedBase64);
     }
 
