@@ -6,7 +6,7 @@
     <groupId>com.bringholm.nametagchanger</groupId>
     <artifactId>NameTagChanger</artifactId>
     <packaging>jar</packaging>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.1-SNAPSHOT</version>
     <name>NameTagChanger</name>
     <url>http://www.bringholm.com</url>
     <properties>
@@ -18,6 +18,10 @@
         <repository>
             <id>dmulloy2-repo</id>
             <url>http://repo.dmulloy2.net/content/groups/public/</url>
+        </repository>
+        <repository>
+            <id>alvinb-repo</id>
+            <url>https://repo.bringholm.com/</url>
         </repository>
     </repositories>
     <dependencies>
@@ -31,6 +35,36 @@
             <artifactId>ProtocolLib</artifactId>
             <version>4.3.0</version>
         </dependency>
+        <dependency>
+            <groupId>com.bringholm</groupId>
+            <artifactId>PacketInterceptor</artifactId>
+            <version>1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.bringholm</groupId>
+            <artifactId>MojangAPIUtil</artifactId>
+            <version>1.1</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.bukkit</groupId>
+                    <artifactId>bukkit</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <!-- https://mvnrepository.com/artifact/junit/junit -->
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.12</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- https://mvnrepository.com/artifact/org.powermock/powermock-api-mockito -->
+        <dependency>
+            <groupId>org.powermock</groupId>
+            <artifactId>powermock-api-mockito</artifactId>
+            <version>1.7.1</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
     <distributionManagement>
         <repository>
@@ -39,15 +73,6 @@
         </repository>
     </distributionManagement>
     <build>
-        <resources>
-            <resource>
-                <directory>${basedir}/src/main/resources</directory>
-                <excludes>
-                    <!-- Prevent the test plugin from being included -->
-                    <exclude>plugin.yml</exclude>
-                </excludes>
-            </resource>
-        </resources>
         <extensions>
             <extension>
                 <groupId>org.apache.maven.wagon</groupId>
@@ -61,6 +86,13 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
                 <version>2.10.4</version>
+                <configuration>
+                    <failOnError>false</failOnError>
+                    <doctitle>NameTagChanger JavaDocs</doctitle>
+                    <windowtitle>NameTagChanger JavaDocs</windowtitle>
+                    <bottom>Copyright &#169; 2017 AlvinB. MIT License.</bottom>
+                    <excludePackageNames>com.bringholm.nametagchanger.metrics</excludePackageNames>
+                </configuration>
                 <executions>
                     <execution>
                         <id>attach-javadocs</id>
@@ -85,13 +117,24 @@
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <configuration>
-                    <excludes>
-                        <!-- Prevent the test plugin from being included -->
-                        <exclude>TestPlugin.java</exclude>
-                    </excludes>
-                </configuration>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.0.0</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <artifactSet>
+                                <includes>
+                                    <include>com.bringholm:ReflectUtil</include>
+                                    <include>com.bringholm:PacketInterceptor</include>
+                                </includes>
+                            </artifactSet>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

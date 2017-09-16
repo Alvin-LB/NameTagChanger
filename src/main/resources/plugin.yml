@@ -1,5 +1,0 @@
-name: nametagchanger
-main: TestPlugin
-version: 1.0
-commands:
-  change:

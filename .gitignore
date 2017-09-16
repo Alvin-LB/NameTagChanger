@@ -7,3 +7,4 @@ out/
 run/
 target/
 lib/
+dependency-reduced-pom.xml

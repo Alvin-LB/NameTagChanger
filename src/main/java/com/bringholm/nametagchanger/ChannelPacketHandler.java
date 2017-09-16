@@ -1,9 +1,9 @@
 package com.bringholm.nametagchanger;
 
+import com.bringholm.packetinterceptor.v1_0.PacketInterceptor;
+import com.bringholm.reflectutil.v1_1.ReflectUtil;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Multimap;
 import com.mojang.authlib.GameProfile;
-import com.mojang.authlib.properties.Property;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
@@ -16,6 +16,7 @@ import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.logging.Level;
 
 /**
  * The non-ProtocolLib implementation of the packet handler.
@@ -81,6 +82,18 @@ public class ChannelPacketHandler extends PacketInterceptor implements IPacketHa
             ReflectUtil.setFieldValue(packet, PLAYER_DATA_LIST, list);
         }
         return true;
+    }
+
+    @Override
+    protected void logMessage(Level level, String message, Exception e) {
+        if (level == Level.SEVERE) {
+            System.err.println("[NameTagChanger] " + message);
+        } else {
+            System.out.println("[NameTagChanger] " + message);
+        }
+        if (e != null) {
+            e.printStackTrace();
+        }
     }
 
     @Override
