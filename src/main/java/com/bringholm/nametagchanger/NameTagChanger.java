@@ -25,6 +25,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Allows changing of a player's overhead name using packet manipulation
+ *
  * @author AlvinB
  */
 public class NameTagChanger {
@@ -82,12 +83,12 @@ public class NameTagChanger {
 
     /**
      * Sets a players skin.
-     *
+     * <p>
      * NOTE: This does not update the player's skin, so a call to
      * updatePlayer() is needed for the changes to take effect.
      *
      * @param player the player to set the skin of
-     * @param skin the skin
+     * @param skin   the skin
      */
     public void setPlayerSkin(Player player, Skin skin) {
         Validate.isTrue(enabled, "NameTagChanger is disabled");
@@ -107,7 +108,7 @@ public class NameTagChanger {
 
     /**
      * Resets a player's skin back to normal
-     *
+     * <p>
      * NOTE: This does not update the player's skin, so a call to
      * updatePlayer() is needed for the changes to take effect.
      *
@@ -131,7 +132,7 @@ public class NameTagChanger {
      * Changes the name displayed above the player's head. Please note that these names
      * must follow the regular rules of minecraft names (ie maximum 16 characters)
      *
-     * @param player the player
+     * @param player  the player
      * @param newName the new name of the player
      */
     public void changePlayerName(Player player, String newName) {
@@ -245,7 +246,7 @@ public class NameTagChanger {
     /**
      * Sends packets to update a player to reflect any changes in skin or
      * name.
-     *
+     * <p>
      * NOTE: This is done automatically by #changePlayerName and #resetPlayerName,
      * so the only real use for this is when changing skins, as those methods
      * do not automatically update.
@@ -290,6 +291,7 @@ public class NameTagChanger {
 
     /**
      * Checks if NameTagChanger is enabled.
+     *
      * @return whether NameTagChanger is enabled or not.
      */
     public boolean isEnabled() {
@@ -336,6 +338,7 @@ public class NameTagChanger {
      * Sets the plugin instance to use for registering packet/event listeners.
      * This is done automatically by the constructor, so this should only be used
      * if the correct plugin is not found.
+     *
      * @param plugin the plugin instance
      */
     public void setPlugin(Plugin plugin) {
@@ -345,14 +348,14 @@ public class NameTagChanger {
 
     /**
      * Gets the skin for a username.
-     *
+     * <p>
      * Since fetching this skin requires making asynchronous requests
      * to Mojang's servers, a call back mechanism using the SkinCallBack
      * class is implemented. This call back allows you to also handle
      * any errors that might have occurred while fetching the skin.
      * If no users with the specified username can be found, the
      * skin passed to the callback will be Skin.EMPTY_SKIN.
-     *
+     * <p>
      * The call back will always be fired on the main thread.
      *
      * @param username the username to get the skin of
@@ -393,24 +396,21 @@ public class NameTagChanger {
 
     /**
      * Gets the skin for a UUID.
-     *
+     * <p>
      * Since fetching this skin might require making asynchronous requests
      * to Mojang's servers, a call back mechanism using the SkinCallBack
      * class is implemented. This call back allows you to also handle
      * any errors that might have occurred while fetching the skin.
-     *
+     * <p>
      * The call back will always be fired on the main thread.
      *
-     * @param uuid the uuid to get the skin of
+     * @param uuid     the uuid to get the skin of
      * @param callBack the call back to handle the result of the request
      */
     public void getSkin(UUID uuid, SkinCallBack callBack) {
-        if (SKIN_CACHE.asMap().containsKey(uuid)) {
-            try {
-                callBack.callBack(SKIN_CACHE.get(uuid), true, null);
-            } catch (ExecutionException e) {
-                callBack.callBack(null, false, e);
-            }
+        Map<UUID, Skin> asMap = SKIN_CACHE.asMap();
+        if (asMap.containsKey(uuid)) {
+            callBack.callBack(asMap.get(uuid), true, null);
         } else {
             new BukkitRunnable() {
                 @Override
