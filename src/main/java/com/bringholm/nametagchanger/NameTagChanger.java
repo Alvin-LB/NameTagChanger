@@ -144,6 +144,9 @@ public class NameTagChanger {
         GameProfileWrapper profile = new GameProfileWrapper(player.getUniqueId(), newName);
         if (gameProfiles.containsKey(player.getUniqueId())) {
             profile.getProperties().putAll(gameProfiles.get(player.getUniqueId()).getProperties());
+        } else {
+            // If the player doesn't already have a skin specified, make sure to carry over their default one.
+            profile.getProperties().putAll(packetHandler.getDefaultPlayerProfile(player).getProperties());
         }
         gameProfiles.put(player.getUniqueId(), profile);
         updatePlayer(player);
@@ -305,7 +308,12 @@ public class NameTagChanger {
     public void disable() {
         Validate.isTrue(enabled, "NameTagChanger is already disabled");
         for (UUID uuid : gameProfiles.keySet()) {
-            resetPlayerName(Bukkit.getPlayer(uuid));
+            Player player = Bukkit.getPlayer(uuid);
+            if (player == null) {
+                continue;
+            }
+            resetPlayerName(player);
+            resetPlayerSkin(player);
         }
         gameProfiles.clear();
         packetHandler.shutdown();

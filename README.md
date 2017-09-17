@@ -48,7 +48,7 @@ If you happen to be using maven, shading is rather simple. First you need to add
        <artifactId>NameTagChanger</artifactId>
        <version>1.1-SNAPSHOT</version>
     </dependency>
-</dependencies>}}
+</dependencies>
 ```
 And to shade it into your jar, add this to the `<build>` section of your POM:
 ```xml
