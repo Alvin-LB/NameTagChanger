@@ -2,6 +2,8 @@ package com.bringholm.nametagchanger;
 
 import com.bringholm.mojangapiutil.v1_2.MojangAPIUtil;
 import com.bringholm.nametagchanger.metrics.Metrics;
+import com.bringholm.nametagchanger.skin.Skin;
+import com.bringholm.nametagchanger.skin.SkinCallBack;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -34,6 +36,9 @@ public class NameTagChanger {
             if (result.wasSuccessful()) {
                 if (result.getValue() != null) {
                     MojangAPIUtil.SkinData data = result.getValue();
+                    if (data.getSkinURL() == null && data.getCapeURL() == null) {
+                        return Skin.EMPTY_SKIN;
+                    }
                     return new Skin(data.getUUID(), data.getBase64(), data.getSignedBase64());
                 }
             } else {

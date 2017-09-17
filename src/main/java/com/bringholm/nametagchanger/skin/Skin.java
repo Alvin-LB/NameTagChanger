@@ -1,4 +1,4 @@
-package com.bringholm.nametagchanger;
+package com.bringholm.nametagchanger.skin;
 
 import com.google.common.collect.Maps;
 import org.apache.commons.lang.Validate;
