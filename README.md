@@ -85,7 +85,7 @@ And to shade it into your jar, add this to the `<build>` section of your POM:
 1. Open the Project Structure menu by pressing Ctrl + Alt + Shift + S
 2. Choose "Modules" in the menu from the right
 3. Click the green plus on the right side of the window and select "JARs or directories"
-4. Select the [NameTagChanger jar you downloaded](#Downloads), click OK
+4. Select the [NameTagChanger jar you downloaded](#downloads), click OK
 5. Set the scope to "Compile"
 ![](https://i.imgur.com/aFfBVQq.png)
 </details>
@@ -100,7 +100,7 @@ either using maven or switching IDE. As a last resort, you could always open the
 
 ### Dynamic downloading
 For those of you who are worried about jars getting too big (you really shouldn't, but whatever), it is entirely possible to programatically
-download this from one of the [download links](#Downloads), and then use a custom classloader to load it.
+download this from one of the [download links](#downloads), and then use a custom classloader to load it.
 
 ## Okay, now I have it setup in my project, what do all of the methods do?
 If you are having difficulties understanding this documentation, you might want to read the [JavaDocs](https://bringholm.com/javadocs/nametagchanger/com/bringholm/nametagchanger/NameTagChanger.html).
@@ -241,5 +241,5 @@ be registered to.
 
 ## Downloads
 * [v1.0-SNAPSHOT](https://bringholm.com/downloads/NameTagChanger%20v1.0-SNAPSHOT.jar)
-* [v1.0](https://bringholm.com/downloads/NameTagChanger-1.0.jar)
+* [v1.0](http://bringholm.com/repo/com/bringholm/nametagchanger/NameTagChanger/1.0/NameTagChanger-1.0.jar)
 * [v1.1-SNAPSHOT](https://bringholm.com/downloads/NameTagChanger%20v1.1-SNAPSHOT.jar)
