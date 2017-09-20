@@ -98,13 +98,14 @@ public class ChannelPacketHandler extends PacketInterceptor implements IPacketHa
             if (mode == CREATE_SCOREBOARD_TEAM_MODE || mode == JOIN_SCOREBOARD_TEAM_MODE || mode == LEAVE_SCOREBOARD_TEAM_MODE) {
                 Collection<String> entriesToAdd = (Collection<String>) ReflectUtil.getFieldValue(packet, SCOREBOARD_TEAM_PACKET_ENTRIES_TO_ADD).getOrThrow();
                 Map<UUID, String> changedPlayerNames = NameTagChanger.INSTANCE.getChangedPlayers();
+                //noinspection Duplicates
                 for (String entry : entriesToAdd) {
                     for (UUID uuid : changedPlayerNames.keySet()) {
                         Player changedPlayer = Bukkit.getPlayer(uuid);
                         if (changedPlayer != null && changedPlayer.getName().equals(entry)) {
                             entriesToAdd.remove(entry);
                             entriesToAdd.add(changedPlayerNames.get(uuid));
-                            return true;
+                            break;
                         }
                     }
                 }

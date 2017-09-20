@@ -41,22 +41,41 @@ public class ProtocolLibPacketHandler extends PacketAdapter implements IPacketHa
         if (NameTagChanger.INSTANCE.sendingPackets) {
             return;
         }
-        List<PlayerInfoData> list = Lists.newArrayList();
-        boolean modified = false;
-        for (PlayerInfoData infoData : e.getPacket().getPlayerInfoDataLists().read(0)) {
-            if (NameTagChanger.INSTANCE.gameProfiles.containsKey(infoData.getProfile().getUUID())) {
-                UUID uuid = infoData.getProfile().getUUID();
-                WrappedChatComponent displayName = infoData.getDisplayName() == null ? WrappedChatComponent.fromText(Bukkit.getPlayer(uuid).getPlayerListName()) : infoData.getDisplayName();
-                WrappedGameProfile gameProfile = getProtocolLibProfileWrapper(NameTagChanger.INSTANCE.gameProfiles.get(uuid));
-                PlayerInfoData newInfoData = new PlayerInfoData(gameProfile, infoData.getLatency(), infoData.getGameMode(), displayName);
-                list.add(newInfoData);
-                modified = true;
-            } else {
-                list.add(infoData);
+        if (e.getPacketType() == PacketType.Play.Server.PLAYER_INFO) {
+            List<PlayerInfoData> list = Lists.newArrayList();
+            boolean modified = false;
+            for (PlayerInfoData infoData : e.getPacket().getPlayerInfoDataLists().read(0)) {
+                if (NameTagChanger.INSTANCE.gameProfiles.containsKey(infoData.getProfile().getUUID())) {
+                    UUID uuid = infoData.getProfile().getUUID();
+                    WrappedChatComponent displayName = infoData.getDisplayName() == null ? WrappedChatComponent.fromText(Bukkit.getPlayer(uuid).getPlayerListName()) : infoData.getDisplayName();
+                    WrappedGameProfile gameProfile = getProtocolLibProfileWrapper(NameTagChanger.INSTANCE.gameProfiles.get(uuid));
+                    PlayerInfoData newInfoData = new PlayerInfoData(gameProfile, infoData.getLatency(), infoData.getGameMode(), displayName);
+                    list.add(newInfoData);
+                    modified = true;
+                } else {
+                    list.add(infoData);
+                }
             }
-        }
-        if (modified) {
-            e.getPacket().getPlayerInfoDataLists().write(0, list);
+            if (modified) {
+                e.getPacket().getPlayerInfoDataLists().write(0, list);
+            }
+        } else {
+            int mode = e.getPacket().getIntegers().read(1);
+            if (mode == CREATE_SCOREBOARD_TEAM_MODE || mode == LEAVE_SCOREBOARD_TEAM_MODE || mode == JOIN_SCOREBOARD_TEAM_MODE) {
+                @SuppressWarnings("unchecked") Collection<String> entriesToAdd = (Collection<String>) e.getPacket().getSpecificModifier(Collection.class);
+                Map<UUID, String> changedPlayerNames = NameTagChanger.INSTANCE.getChangedPlayers();
+                //noinspection Duplicates
+                for (String entry : entriesToAdd) {
+                    for (UUID uuid : changedPlayerNames.keySet()) {
+                        Player changedPlayer = Bukkit.getPlayer(uuid);
+                        if (changedPlayer != null && changedPlayer.getName().equals(entry)) {
+                            entriesToAdd.remove(entry);
+                            entriesToAdd.add(changedPlayerNames.get(uuid));
+                            break;
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -137,7 +156,7 @@ public class ProtocolLibPacketHandler extends PacketAdapter implements IPacketHa
     private PacketContainer getScoreboardPacket(String team, String entryToAdd, int mode) {
         PacketContainer packet = ProtocolLibrary.getProtocolManager().createPacket(PacketType.Play.Server.SCOREBOARD_TEAM);
         packet.getStrings().write(0, team);
-        packet.getIntegers().write(0, mode);
+        packet.getIntegers().write(1, mode);
         ((Collection<String>) packet.getSpecificModifier(Collection.class).read(0)).add(entryToAdd);
         return packet;
     }
