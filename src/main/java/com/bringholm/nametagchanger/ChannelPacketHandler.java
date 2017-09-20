@@ -12,9 +12,7 @@ import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.util.Collections;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.logging.Level;
 
 /**
@@ -55,8 +53,18 @@ public class ChannelPacketHandler extends PacketInterceptor implements IPacketHa
 
     private static final Constructor<?> PACKET_NAMED_ENTITY_SPAWN_CONSTRUCTOR = ReflectUtil.getConstructor(ReflectUtil.getNMSClass("PacketPlayOutNamedEntitySpawn").getOrThrow(), ReflectUtil.getNMSClass("EntityHuman").getOrThrow()).getOrThrow();
 
+    private static final Class<?> SCOREBOARD_TEAM_PACKET_CLASS = ReflectUtil.getNMSClass("PacketPlayOutScoreboardTeam").getOrThrow();
+    private static final Field SCOREBOARD_TEAM_PACKET_MODE = ReflectUtil.getDeclaredField(SCOREBOARD_TEAM_PACKET_CLASS, "i", true).getOrThrow();
+    private static final Field SCOREBOARD_TEAM_PACKET_ENTRIES_TO_ADD = ReflectUtil.getDeclaredFieldByType(SCOREBOARD_TEAM_PACKET_CLASS, Collection.class, 0, true).getOrThrow();
+    private static final int CREATE_SCOREBOARD_TEAM_MODE = 0;
+    private static final int JOIN_SCOREBOARD_TEAM_MODE = 3;
+    private static final int LEAVE_SCOREBOARD_TEAM_MODE = 4;
+
+    private static final Constructor<?> SCOREBOARD_TEAM_PACKET_CONSTRUCTOR = ReflectUtil.getConstructor(SCOREBOARD_TEAM_PACKET_CLASS).getOrThrow();
+    private static final Field SCOREBOARD_TEAM_PACKET_TEAM_NAME = ReflectUtil.getDeclaredField(SCOREBOARD_TEAM_PACKET_CLASS, "a", true).getOrThrow();
+
     ChannelPacketHandler(Plugin plugin) {
-        super(plugin, "PacketPlayOutPlayerInfo");
+        super(plugin, "PacketPlayOutPlayerInfo", "PacketPlayOutScoreboardTeam");
     }
 
     @Override
@@ -64,25 +72,43 @@ public class ChannelPacketHandler extends PacketInterceptor implements IPacketHa
         if (NameTagChanger.INSTANCE.sendingPackets) {
             return true;
         }
-        List<Object> list = Lists.newArrayList();
-        boolean modified = false;
-        for (Object infoData : (List<Object>) ReflectUtil.getFieldValue(packet, PLAYER_DATA_LIST).getOrThrow()) {
-            GameProfileWrapper gameProfile = GameProfileWrapper.fromHandle(ReflectUtil.invokeMethod(infoData, GET_GAME_PROFILE).getOrThrow());
-            UUID uuid = gameProfile.getUUID();
-            if (NameTagChanger.INSTANCE.gameProfiles.containsKey(uuid)) {
-                Object prevDisplayName = ReflectUtil.invokeMethod(infoData, GET_DISPLAY_NAME).getOrThrow();
-                Object displayName = prevDisplayName == null ? ReflectUtil.invokeConstructor(CHAT_COMPONENT_TEXT_CONSTRUCTOR, Bukkit.getPlayer(uuid).getPlayerListName()).getOrThrow() : ReflectUtil.invokeMethod(infoData, GET_DISPLAY_NAME).getOrThrow();
-                GameProfileWrapper newGameProfile = NameTagChanger.INSTANCE.gameProfiles.get(uuid);
-                Object newInfoData = ReflectUtil.invokeConstructor(PLAYER_INFO_DATA_CONSTRUCTOR, packet, newGameProfile.getHandle(),
-                        ReflectUtil.invokeMethod(infoData, GET_LATENCY).getOrThrow(), ReflectUtil.invokeMethod(infoData, GET_GAMEMODE).getOrThrow(), displayName).getOrThrow();
-                list.add(newInfoData);
-                modified = true;
-            } else {
-                list.add(infoData);
+        if (packetName.equals("PacketPlayOutPlayerInfo")) {
+            List<Object> list = Lists.newArrayList();
+            boolean modified = false;
+            for (Object infoData : (List<Object>) ReflectUtil.getFieldValue(packet, PLAYER_DATA_LIST).getOrThrow()) {
+                GameProfileWrapper gameProfile = GameProfileWrapper.fromHandle(ReflectUtil.invokeMethod(infoData, GET_GAME_PROFILE).getOrThrow());
+                UUID uuid = gameProfile.getUUID();
+                if (NameTagChanger.INSTANCE.gameProfiles.containsKey(uuid)) {
+                    Object prevDisplayName = ReflectUtil.invokeMethod(infoData, GET_DISPLAY_NAME).getOrThrow();
+                    Object displayName = prevDisplayName == null ? ReflectUtil.invokeConstructor(CHAT_COMPONENT_TEXT_CONSTRUCTOR, (Bukkit.getPlayer(uuid) == null ? gameProfile.getName() : Bukkit.getPlayer(uuid).getPlayerListName())).getOrThrow() : ReflectUtil.invokeMethod(infoData, GET_DISPLAY_NAME).getOrThrow();
+                    GameProfileWrapper newGameProfile = NameTagChanger.INSTANCE.gameProfiles.get(uuid);
+                    Object newInfoData = ReflectUtil.invokeConstructor(PLAYER_INFO_DATA_CONSTRUCTOR, packet, newGameProfile.getHandle(),
+                            ReflectUtil.invokeMethod(infoData, GET_LATENCY).getOrThrow(), ReflectUtil.invokeMethod(infoData, GET_GAMEMODE).getOrThrow(), displayName).getOrThrow();
+                    list.add(newInfoData);
+                    modified = true;
+                } else {
+                    list.add(infoData);
+                }
             }
-        }
-        if (modified) {
-            ReflectUtil.setFieldValue(packet, PLAYER_DATA_LIST, list);
+            if (modified) {
+                ReflectUtil.setFieldValue(packet, PLAYER_DATA_LIST, list);
+            }
+        } else {
+            int mode = (int) ReflectUtil.getFieldValue(packet, SCOREBOARD_TEAM_PACKET_MODE).getOrThrow();
+            if (mode == CREATE_SCOREBOARD_TEAM_MODE || mode == JOIN_SCOREBOARD_TEAM_MODE || mode == LEAVE_SCOREBOARD_TEAM_MODE) {
+                Collection<String> entriesToAdd = (Collection<String>) ReflectUtil.getFieldValue(packet, SCOREBOARD_TEAM_PACKET_ENTRIES_TO_ADD).getOrThrow();
+                Map<UUID, String> changedPlayerNames = NameTagChanger.INSTANCE.getChangedPlayers();
+                for (String entry : entriesToAdd) {
+                    for (UUID uuid : changedPlayerNames.keySet()) {
+                        Player changedPlayer = Bukkit.getPlayer(uuid);
+                        if (changedPlayer != null && changedPlayer.getName().equals(entry)) {
+                            entriesToAdd.remove(entry);
+                            entriesToAdd.add(changedPlayerNames.get(uuid));
+                            return true;
+                        }
+                    }
+                }
+            }
         }
         return true;
     }
@@ -129,6 +155,24 @@ public class ChannelPacketHandler extends PacketInterceptor implements IPacketHa
     public void sendNamedEntitySpawnPacket(Player playerToSpawn, Player seer) {
         Object packet = ReflectUtil.invokeConstructor(PACKET_NAMED_ENTITY_SPAWN_CONSTRUCTOR, ReflectUtil.invokeMethod(playerToSpawn, GET_HANDLE).getOrThrow()).getOrThrow();
         sendPacket(seer, packet);
+    }
+
+    @Override
+    public void sendScoreboardRemovePacket(String playerToRemove, Player seer, String team) {
+        sendPacket(seer, getScoreboardPacket(team, playerToRemove, LEAVE_SCOREBOARD_TEAM_MODE));
+    }
+
+    @Override
+    public void sendScoreboardAddPacket(String playerToAdd, Player seer, String team) {
+        sendPacket(seer, getScoreboardPacket(team, playerToAdd, JOIN_SCOREBOARD_TEAM_MODE));
+    }
+
+    private Object getScoreboardPacket(String team, String entryToAdd, int mode) {
+        Object packet = ReflectUtil.invokeConstructor(SCOREBOARD_TEAM_PACKET_CONSTRUCTOR).getOrThrow();
+        ReflectUtil.setFieldValue(packet, SCOREBOARD_TEAM_PACKET_TEAM_NAME, team).getOrThrow();
+        ReflectUtil.setFieldValue(packet, SCOREBOARD_TEAM_PACKET_MODE, mode).getOrThrow();
+        ((Collection<String>) ReflectUtil.getFieldValue(packet, SCOREBOARD_TEAM_PACKET_ENTRIES_TO_ADD).getOrThrow()).add(entryToAdd);
+        return packet;
     }
 
     @Override

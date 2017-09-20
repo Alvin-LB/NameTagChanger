@@ -27,6 +27,10 @@ public class ProtocolLibPacketHandler extends PacketAdapter implements IPacketHa
     private static final Method GET_HANDLE = ReflectUtil.getMethod(ReflectUtil.getCBClass("entity.CraftPlayer").getOrThrow(), "getHandle").getOrThrow();
     private static final Field PING = ReflectUtil.getField(ENTITY_PLAYER, "ping").getOrThrow();
 
+    private static final int CREATE_SCOREBOARD_TEAM_MODE = 0;
+    private static final int JOIN_SCOREBOARD_TEAM_MODE = 3;
+    private static final int LEAVE_SCOREBOARD_TEAM_MODE = 4;
+
     ProtocolLibPacketHandler(Plugin plugin) {
         super(plugin, PacketType.Play.Server.PLAYER_INFO);
         ProtocolLibrary.getProtocolManager().addPacketListener(this);
@@ -109,6 +113,33 @@ public class ProtocolLibPacketHandler extends PacketAdapter implements IPacketHa
         } catch (InvocationTargetException e) {
             e.printStackTrace();
         }
+    }
+
+    @Override
+    public void sendScoreboardRemovePacket(String playerToRemove, Player seer, String team) {
+        try {
+            ProtocolLibrary.getProtocolManager().sendServerPacket(seer, getScoreboardPacket(team, playerToRemove, LEAVE_SCOREBOARD_TEAM_MODE));
+        } catch (InvocationTargetException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public void sendScoreboardAddPacket(String playerToAdd, Player seer, String team) {
+        try {
+            ProtocolLibrary.getProtocolManager().sendServerPacket(seer, getScoreboardPacket(team, playerToAdd, JOIN_SCOREBOARD_TEAM_MODE));
+        } catch (InvocationTargetException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private PacketContainer getScoreboardPacket(String team, String entryToAdd, int mode) {
+        PacketContainer packet = ProtocolLibrary.getProtocolManager().createPacket(PacketType.Play.Server.SCOREBOARD_TEAM);
+        packet.getStrings().write(0, team);
+        packet.getIntegers().write(0, mode);
+        ((Collection<String>) packet.getSpecificModifier(Collection.class).read(0)).add(entryToAdd);
+        return packet;
     }
 
     @Override

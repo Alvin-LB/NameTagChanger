@@ -8,6 +8,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import org.apache.commons.lang.Validate;
 import org.bukkit.Bukkit;
@@ -15,11 +16,9 @@ import org.bukkit.configuration.serialization.ConfigurationSerialization;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scoreboard.Team;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
@@ -149,7 +148,7 @@ public class NameTagChanger {
             profile.getProperties().putAll(packetHandler.getDefaultPlayerProfile(player).getProperties());
         }
         gameProfiles.put(player.getUniqueId(), profile);
-        updatePlayer(player);
+        updatePlayer(player, player.getName());
     }
 
     /**
@@ -169,7 +168,7 @@ public class NameTagChanger {
             newProfile.getProperties().putAll("textures", oldProfile.getProperties().get("textures"));
         }
         gameProfiles.put(player.getUniqueId(), newProfile);
-        updatePlayer(player);
+        updatePlayer(player, oldProfile.getName());
         checkForRemoval(player);
     }
 
@@ -257,14 +256,22 @@ public class NameTagChanger {
      * @param player the player to update
      */
     public void updatePlayer(Player player) {
+        updatePlayer(player, null);
+    }
+
+    private void updatePlayer(Player player, String oldName) {
         Validate.isTrue(enabled, "NameTagChanger is disabled");
         GameProfileWrapper newProfile = gameProfiles.get(player.getUniqueId());
         if (newProfile == null) {
             newProfile = packetHandler.getDefaultPlayerProfile(player);
         }
+        List<Team> scoreboardTeamsToUpdate = Lists.newArrayList();
         sendingPackets = true;
         for (Player otherPlayer : Bukkit.getOnlinePlayers()) {
             if (otherPlayer.equals(player)) {
+                if (otherPlayer.getScoreboard().getEntryTeam(player.getName()) != null) {
+                    scoreboardTeamsToUpdate.add(otherPlayer.getScoreboard().getEntryTeam(player.getName()));
+                }
                 continue;
             }
             if (otherPlayer.canSee(player)) {
@@ -274,6 +281,19 @@ public class NameTagChanger {
                     packetHandler.sendEntityDestroyPacket(player, otherPlayer);
                     packetHandler.sendNamedEntitySpawnPacket(player, otherPlayer);
                 }
+            }
+            // The player we want to rename is in a scoreboard team.
+            if (otherPlayer.getScoreboard().getEntryTeam(player.getName()) != null) {
+                scoreboardTeamsToUpdate.add(otherPlayer.getScoreboard().getEntryTeam(player.getName()));
+            }
+        }
+        if (oldName != null) {
+            String newName = newProfile.getName();
+            for (Team team : scoreboardTeamsToUpdate) {
+                Bukkit.getOnlinePlayers().stream().filter(p -> p.getScoreboard() == team.getScoreboard()).forEach(p -> {
+                    packetHandler.sendScoreboardRemovePacket(oldName, p, team.getName());
+                    packetHandler.sendScoreboardAddPacket(newName, p, team.getName());
+                });
             }
         }
         sendingPackets = false;
