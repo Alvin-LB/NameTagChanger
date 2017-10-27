@@ -62,7 +62,7 @@ public class ProtocolLibPacketHandler extends PacketAdapter implements IPacketHa
         } else {
             int mode = e.getPacket().getIntegers().read(1);
             if (mode == CREATE_SCOREBOARD_TEAM_MODE || mode == LEAVE_SCOREBOARD_TEAM_MODE || mode == JOIN_SCOREBOARD_TEAM_MODE) {
-                @SuppressWarnings("unchecked") Collection<String> entriesToAdd = (Collection<String>) e.getPacket().getSpecificModifier(Collection.class);
+                @SuppressWarnings("unchecked") Collection<String> entriesToAdd = (Collection<String>) e.getPacket().getSpecificModifier(Collection.class).read(0);
                 Map<UUID, String> changedPlayerNames = NameTagChanger.INSTANCE.getChangedPlayers();
                 //noinspection Duplicates
                 for (String entry : entriesToAdd) {

@@ -94,7 +94,7 @@ public class Skin implements ConfigurationSerializable {
         if (this == EMPTY_SKIN) {
             map.put("empty", "true");
         } else {
-            map.put("uuid", uuid);
+            map.put("uuid", uuid.toString());
             map.put("base64", base64);
             if (hasSignedBase64()) {
                 map.put("signedBase64", signedBase64);
