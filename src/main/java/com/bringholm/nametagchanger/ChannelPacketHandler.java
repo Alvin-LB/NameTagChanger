@@ -128,7 +128,7 @@ public class ChannelPacketHandler extends PacketInterceptor implements IPacketHa
         if (level == Level.SEVERE) {
             System.err.println("[NameTagChanger] " + message);
         } else {
-            System.out.println("[NameTagChanger] " + message);
+            NameTagChanger.INSTANCE.printMessage(message);
         }
         if (e != null) {
             e.printStackTrace();

@@ -4,6 +4,7 @@ import com.bringholm.mojangapiutil.v1_2.MojangAPIUtil;
 import com.bringholm.nametagchanger.metrics.Metrics;
 import com.bringholm.nametagchanger.skin.Skin;
 import com.bringholm.nametagchanger.skin.SkinCallBack;
+import com.bringholm.reflectutil.v1_1_1.ReflectUtil;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -350,6 +351,9 @@ public class NameTagChanger {
         if (plugin == null) {
             return;
         }
+        if (!ReflectUtil.isVersionHigherThan(1, 7, 10)) {
+            printMessage("NameTagChanger has detected that you are running 1.7 or lower. This probably means that NameTagChanger will not work or throw errors, but you are still free to try and use it.\nIf you are not a developer, please consider contacting the developer of " + plugin.getName() + " and informing them about this message.");
+        }
         ConfigurationSerialization.registerClass(Skin.class);
         Validate.isTrue(!enabled, "NameTagChanger is already enabled");
         if (Bukkit.getPluginManager().getPlugin("ProtocolLib") != null) {
@@ -360,6 +364,10 @@ public class NameTagChanger {
         enabled = true;
         Metrics metrics = new Metrics(plugin);
         metrics.addCustomChart(new Metrics.SimplePie("packet_implementation", () -> packetHandler instanceof ProtocolLibPacketHandler ? "ProtocolLib" : "ChannelInjector"));
+    }
+
+    void printMessage(String message) {
+        System.out.println("[NameTagChanger] " + message);
     }
 
     /**
