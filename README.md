@@ -94,8 +94,27 @@ And to shade it into your jar, add this to the `<build>` section of your POM:
 <details><summary>Click to show</summary>
 
 To my knowledge, it is not possible to shade libraries into a non-executable jar using standard eclipse IDE tools.
-You could try the [Fat Jar Eclipse Plugin](http://fjep.sourceforge.net/), but I have been unsuccessful in getting it to work. I recommend
-either using maven or switching IDE. As a last resort, you could always open the jar with a zip program and manually drag the contents in.
+We're going to have to use the [Fat Jar Eclipse Plugin](http://fjep.sourceforge.net/).
+
+Since the Fat Jar eclipse plugin is such an old plugin we first need to install a compatibility plugin. This plugin is called 'Eclipse 2.0 Style Plugin Support'. We download it by doing the following:
+- Go to Help > Install new software
+- Paste 'http://download.eclipse.org/eclipse/updates/4.6' in the 'type or select a site' field.
+- Click 'Add' and choose a name in the dialogue box (this name doesn't matter).
+- Now you should have a bunch of options in the pane below the 'type or select a site' text field.
+- Click the little arrow next to 'Eclipse Tests, Tools, Examples, and Extras'
+- Check the 'Eclipse 2.0 Style Plugin Support' checkbox and finish the installation.
+![](https://i.imgur.com/rT3u6P9.png)
+After this, we need to install the actual Fat Jar plugin. The process is pretty much the same as with the previous plugin, only difference is that we use the 'http://kurucz-grafika.de/fatjar' url.
+![](https://i.imgur.com/i3tYmcC.png)
+Next, we need to add NameTagChanger to our buildpath by right clicking on our project in the Project Explorer, selecting properties, and click Add JARs/Add External JARs and locating the [NameTagChanger jar we downloaded](#downloads).
+After that, we want to export our code and shade NameTagChanger in with it at the same time, which we do like this:
+- Go to File > Export
+- Select the 'Fat Jar Exporter' in the 'Other' folder.
+- Hit 'Next' and select the java project containing your code.
+- Hit 'Next' and choose a name for your final jar file.
+- Hit 'Next' and select your project file.
+- Hit 'Finish' and your jar will be saved in the project directory, ready to be run as a plugin!
+![](https://i.imgur.com/lOs78z4.png)
 </details>
 
 ### Dynamic downloading
