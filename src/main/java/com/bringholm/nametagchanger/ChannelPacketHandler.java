@@ -22,6 +22,14 @@ import java.util.logging.Level;
 @SuppressWarnings("unchecked")
 public class ChannelPacketHandler extends PacketInterceptor implements IPacketHandler {
 
+    static {
+        if (ReflectUtil.isVersionHigherThan(1, 9, 4)) {
+            ENUM_GAMEMODE = ReflectUtil.getNMSClass("EnumGamemode").getOrThrow();
+        } else {
+            ENUM_GAMEMODE = ReflectUtil.getNMSClass("WorldSettings$EnumGamemode").getOrThrow();
+        }
+    }
+
     private static final Class<?> GAME_PROFILE_CLASS = ReflectUtil.getClass("com.mojang.authlib.GameProfile").getOrThrow();
 
     private static final Class<?> PLAYER_INFO_DATA_CLASS = ReflectUtil.getNMSClass("PacketPlayOutPlayerInfo$PlayerInfoData").getOrThrow();
@@ -30,7 +38,8 @@ public class ChannelPacketHandler extends PacketInterceptor implements IPacketHa
     private static final Constructor<?> PLAYER_INFO_DATA_CONSTRUCTOR = ReflectUtil.getConstructor(PLAYER_INFO_DATA_CLASS, ReflectUtil.getNMSClass("PacketPlayOutPlayerInfo").getOrThrow(), GAME_PROFILE_CLASS,
             int.class, ReflectUtil.getNMSClass("EnumGamemode").getOrThrow(), ReflectUtil.getNMSClass("IChatBaseComponent").getOrThrow()).getOrThrow();
     private static final Method GET_LATENCY = ReflectUtil.getMethodByType(PLAYER_INFO_DATA_CLASS, int.class, 0).getOrThrow();
-    private static final Method GET_GAMEMODE = ReflectUtil.getMethodByType(PLAYER_INFO_DATA_CLASS, ReflectUtil.getNMSClass("EnumGamemode").getOrThrow(), 0).getOrThrow();
+    private static final Class<?> ENUM_GAMEMODE;
+    private static final Method GET_GAMEMODE = ReflectUtil.getMethodByType(PLAYER_INFO_DATA_CLASS, ENUM_GAMEMODE, 0).getOrThrow();
     private static final Method GET_DISPLAY_NAME = ReflectUtil.getMethodByType(PLAYER_INFO_DATA_CLASS, ReflectUtil.getNMSClass("IChatBaseComponent").getOrThrow(), 0).getOrThrow();
 
     private static final Class<?> ENTITY_PLAYER = ReflectUtil.getNMSClass("EntityPlayer").getOrThrow();
