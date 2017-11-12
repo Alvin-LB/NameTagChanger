@@ -82,12 +82,23 @@ And to shade it into your jar, add this to the `<build>` section of your POM:
 ### IntelliJ IDEA
 <details><summary>Click to show</summary>
 
-1. Open the Project Structure menu by pressing Ctrl + Alt + Shift + S
-2. Choose "Modules" in the menu from the right
-3. Click the green plus on the right side of the window and select "JARs or directories"
-4. Select the [NameTagChanger jar you downloaded](#downloads), click OK
-5. Set the scope to "Compile"
+First, we need to add NameTagChanger as a dependency with 'Compile' scope.
+- Open the Project Structure menu by pressing Ctrl + Alt + Shift + S
+- Choose "Modules" in the menu on the left
+- Click the green plus on the right side of the window and select "JARs or directories"
+- Select the [NameTagChanger jar you downloaded](#downloads), click OK
+- Set the scope to "Compile"
 ![](https://i.imgur.com/aFfBVQq.png)
+
+Next, we're going to need to create an artifact to build our jar. If you already have an artifact from setting up your project using the Spigot/Bukkit tutorials, please delete it.
+- Open the Project Structure menu by pressing Ctrl + Alt + Shift + S
+- Choose "Artifacts" in the menu on the left
+- Click the green plus in the top left of the window and choose JAR > From modules with dependencies. It is important that you pick 'From modules with dependencies' and not 'Empty'.
+![](https://i.imgur.com/0LgXBQi.png)
+- Select a name and output directory for your jar.
+- Check the box 'Include in project build'
+- Hit OK, and you're done. You can build your project by pressing the 'Build Project' button in the top left of the screen, or by hitting Ctrl + F9
+![](https://i.imgur.com/iPizgqb.png)
 </details>
 
 ### Eclipse
@@ -112,7 +123,7 @@ After that, we want to export our code and shade NameTagChanger in with it at th
 - Select the 'Fat Jar Exporter' in the 'Other' folder.
 - Hit 'Next' and select the java project containing your code.
 - Hit 'Next' and choose a name for your final jar file.
-- Hit 'Next' and select your project file.
+- Hit 'Next' and select Project '&lt;your project name&gt;' output and the NameTagChanger jar we just added as a dependency
 - Hit 'Finish' and your jar will be saved in the project directory, ready to be run as a plugin!
 ![](https://i.imgur.com/lOs78z4.png)
 </details>
