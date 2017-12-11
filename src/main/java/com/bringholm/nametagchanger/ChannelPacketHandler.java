@@ -30,15 +30,15 @@ public class ChannelPacketHandler extends PacketInterceptor implements IPacketHa
         }
     }
 
+    private static final Class<?> ENUM_GAMEMODE;
     private static final Class<?> GAME_PROFILE_CLASS = ReflectUtil.getClass("com.mojang.authlib.GameProfile").getOrThrow();
 
     private static final Class<?> PLAYER_INFO_DATA_CLASS = ReflectUtil.getNMSClass("PacketPlayOutPlayerInfo$PlayerInfoData").getOrThrow();
     private static final Field PLAYER_DATA_LIST = ReflectUtil.getDeclaredFieldByType(ReflectUtil.getNMSClass("PacketPlayOutPlayerInfo").getOrThrow(), List.class, 0, true).getOrThrow();
     private static final Method GET_GAME_PROFILE = ReflectUtil.getMethodByType(PLAYER_INFO_DATA_CLASS, GAME_PROFILE_CLASS, 0).getOrThrow();
     private static final Constructor<?> PLAYER_INFO_DATA_CONSTRUCTOR = ReflectUtil.getConstructor(PLAYER_INFO_DATA_CLASS, ReflectUtil.getNMSClass("PacketPlayOutPlayerInfo").getOrThrow(), GAME_PROFILE_CLASS,
-            int.class, ReflectUtil.getNMSClass("EnumGamemode").getOrThrow(), ReflectUtil.getNMSClass("IChatBaseComponent").getOrThrow()).getOrThrow();
+            int.class, ENUM_GAMEMODE, ReflectUtil.getNMSClass("IChatBaseComponent").getOrThrow()).getOrThrow();
     private static final Method GET_LATENCY = ReflectUtil.getMethodByType(PLAYER_INFO_DATA_CLASS, int.class, 0).getOrThrow();
-    private static final Class<?> ENUM_GAMEMODE;
     private static final Method GET_GAMEMODE = ReflectUtil.getMethodByType(PLAYER_INFO_DATA_CLASS, ENUM_GAMEMODE, 0).getOrThrow();
     private static final Method GET_DISPLAY_NAME = ReflectUtil.getMethodByType(PLAYER_INFO_DATA_CLASS, ReflectUtil.getNMSClass("IChatBaseComponent").getOrThrow(), 0).getOrThrow();
 
@@ -53,7 +53,8 @@ public class ChannelPacketHandler extends PacketInterceptor implements IPacketHa
     private static final Constructor<?> PACKET_PLAYER_INFO_CONSTRUCTOR_EMPTY = ReflectUtil.getConstructor(ReflectUtil.getNMSClass("PacketPlayOutPlayerInfo").getOrThrow()).getOrThrow();
     private static final Method ENTITY_PLAYER_GET_GAME_PROFILE = ReflectUtil.getMethodByType(ENTITY_PLAYER, GAME_PROFILE_CLASS, 0).getOrThrow();
     private static final Field PING = ReflectUtil.getField(ENTITY_PLAYER, "ping").getOrThrow();
-    private static final Method GET_BY_ID = ReflectUtil.getMethod(ReflectUtil.getNMSClass("EnumGamemode").getOrThrow(), "getById", int.class).getOrThrow();
+    @SuppressWarnings("ConstantConditions")
+    private static final Method GET_BY_ID = ReflectUtil.getMethod(ENUM_GAMEMODE, "getById", int.class).getOrThrow();
     private static final Constructor<?> CHAT_COMPONENT_TEXT_CONSTRUCTOR = ReflectUtil.getConstructor(ReflectUtil.getNMSClass("ChatComponentText").getOrThrow(), String.class).getOrThrow();
     private static final Field PLAYER_INFO_ACTION = ReflectUtil.getDeclaredFieldByType(ReflectUtil.getNMSClass("PacketPlayOutPlayerInfo").getOrThrow(), ReflectUtil.getNMSClass("PacketPlayOutPlayerInfo$EnumPlayerInfoAction").getOrThrow(), 0, true).getOrThrow();
     private static final Object ADD_PLAYER_CONSTANT = ReflectUtil.getEnumConstant(ReflectUtil.getNMSClass("PacketPlayOutPlayerInfo$EnumPlayerInfoAction").getOrThrow(), "ADD_PLAYER").getOrThrow();

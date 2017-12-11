@@ -32,7 +32,7 @@ public class ProtocolLibPacketHandler extends PacketAdapter implements IPacketHa
     private static final int LEAVE_SCOREBOARD_TEAM_MODE = 4;
 
     ProtocolLibPacketHandler(Plugin plugin) {
-        super(plugin, PacketType.Play.Server.PLAYER_INFO);
+        super(plugin, PacketType.Play.Server.PLAYER_INFO, PacketType.Play.Server.SCOREBOARD_TEAM);
         ProtocolLibrary.getProtocolManager().addPacketListener(this);
     }
 
@@ -47,7 +47,8 @@ public class ProtocolLibPacketHandler extends PacketAdapter implements IPacketHa
             for (PlayerInfoData infoData : e.getPacket().getPlayerInfoDataLists().read(0)) {
                 if (NameTagChanger.INSTANCE.gameProfiles.containsKey(infoData.getProfile().getUUID())) {
                     UUID uuid = infoData.getProfile().getUUID();
-                    WrappedChatComponent displayName = infoData.getDisplayName() == null ? WrappedChatComponent.fromText(Bukkit.getPlayer(uuid).getPlayerListName()) : infoData.getDisplayName();
+                    Player player = Bukkit.getPlayer(uuid);
+                    WrappedChatComponent displayName = infoData.getDisplayName() == null ? WrappedChatComponent.fromText(player == null ? infoData.getProfile().getName() : player.getPlayerListName()) : infoData.getDisplayName();
                     WrappedGameProfile gameProfile = getProtocolLibProfileWrapper(NameTagChanger.INSTANCE.gameProfiles.get(uuid));
                     PlayerInfoData newInfoData = new PlayerInfoData(gameProfile, infoData.getLatency(), infoData.getGameMode(), displayName);
                     list.add(newInfoData);
@@ -122,9 +123,15 @@ public class ProtocolLibPacketHandler extends PacketAdapter implements IPacketHa
         PacketContainer packet = ProtocolLibrary.getProtocolManager().createPacket(PacketType.Play.Server.NAMED_ENTITY_SPAWN);
         packet.getIntegers().write(0, playerToSpawn.getEntityId());
         packet.getUUIDs().write(0, playerToSpawn.getUniqueId());
-        packet.getDoubles().write(0, playerToSpawn.getLocation().getX());
-        packet.getDoubles().write(1, playerToSpawn.getLocation().getY());
-        packet.getDoubles().write(2, playerToSpawn.getLocation().getZ());
+        if (ReflectUtil.isVersionHigherThan(1, 8, 8)) {
+            packet.getDoubles().write(0, playerToSpawn.getLocation().getX());
+            packet.getDoubles().write(1, playerToSpawn.getLocation().getY());
+            packet.getDoubles().write(2, playerToSpawn.getLocation().getZ());
+        } else {
+            packet.getIntegers().write(0, (int) Math.floor(playerToSpawn.getLocation().getX() * 32D));
+            packet.getIntegers().write(1, (int) Math.floor(playerToSpawn.getLocation().getY() * 32D));
+            packet.getIntegers().write(2, (int) Math.floor(playerToSpawn.getLocation().getZ() * 32D));
+        }
         packet.getBytes().write(0, (byte) (playerToSpawn.getLocation().getYaw() * 256F / 360F));
         packet.getBytes().write(1, (byte) (playerToSpawn.getLocation().getPitch() * 256F / 360F));
         try {
