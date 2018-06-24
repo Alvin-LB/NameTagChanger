@@ -328,7 +328,8 @@ public class NameTagChanger {
      */
     public void disable() {
         Validate.isTrue(enabled, "NameTagChanger is already disabled");
-        for (UUID uuid : gameProfiles.keySet()) {
+        // Prevent ConcurrentModificationException by wrapping keySet in a list
+        for (UUID uuid : new ArrayList<>(gameProfiles.keySet())) {
             Player player = Bukkit.getPlayer(uuid);
             if (player == null) {
                 continue;
