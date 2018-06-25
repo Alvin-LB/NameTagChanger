@@ -134,6 +134,7 @@ public class ProtocolLibPacketHandler extends PacketAdapter implements IPacketHa
         }
         packet.getBytes().write(0, (byte) (playerToSpawn.getLocation().getYaw() * 256F / 360F));
         packet.getBytes().write(1, (byte) (playerToSpawn.getLocation().getPitch() * 256F / 360F));
+        packet.getDataWatcherModifier().write(0, WrappedDataWatcher.getEntityWatcher(playerToSpawn));
         try {
             ProtocolLibrary.getProtocolManager().sendServerPacket(seer, packet);
         } catch (InvocationTargetException e) {
