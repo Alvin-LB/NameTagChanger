@@ -139,7 +139,7 @@ public class NameTagChanger {
         Validate.isTrue(enabled, "NameTagChanger is disabled");
         Validate.notNull(player, "player cannot be null");
         Validate.notNull(newName, "newName cannot be null");
-        Validate.isTrue(!newName.equals(player.getName()), "The new name cannot be the same of the player's! If you intended to reset the player's name, use resetPlayerName()!");
+        Validate.isTrue(!newName.equals(player.getName()), "The new name cannot be the same as the player's! If you intended to reset the player's name, use resetPlayerName()!");
         Validate.isTrue(newName.length() <= 16, "newName cannot be longer than 16 characters!");
         GameProfileWrapper profile = new GameProfileWrapper(player.getUniqueId(), newName);
         if (gameProfiles.containsKey(player.getUniqueId())) {
@@ -281,6 +281,7 @@ public class NameTagChanger {
                 if (otherPlayer.getWorld().equals(player.getWorld())) {
                     packetHandler.sendEntityDestroyPacket(player, otherPlayer);
                     packetHandler.sendNamedEntitySpawnPacket(player, otherPlayer);
+                    packetHandler.sendEntityEquipmentPacket(player, otherPlayer);
                 }
             }
             // The player we want to rename is in a scoreboard team.

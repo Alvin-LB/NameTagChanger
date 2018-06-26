@@ -10,12 +10,14 @@ import com.comphenix.protocol.wrappers.*;
 import com.google.common.collect.Lists;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.*;
+import java.util.logging.Level;
 
 /**
  * The packet handler implementation using ProtocolLib
@@ -89,7 +91,7 @@ public class ProtocolLibPacketHandler extends PacketAdapter implements IPacketHa
         try {
             ProtocolLibrary.getProtocolManager().sendServerPacket(seer, packet);
         } catch (InvocationTargetException e) {
-            e.printStackTrace();
+            logMessage(Level.SEVERE, "Failed to send tab list remove packet!", e);
         }
     }
 
@@ -103,7 +105,7 @@ public class ProtocolLibPacketHandler extends PacketAdapter implements IPacketHa
         try {
             ProtocolLibrary.getProtocolManager().sendServerPacket(seer, packet);
         } catch (InvocationTargetException e) {
-            e.printStackTrace();
+            logMessage(Level.SEVERE, "Failed to send tab list add packet!", e);
         }
     }
 
@@ -114,7 +116,7 @@ public class ProtocolLibPacketHandler extends PacketAdapter implements IPacketHa
         try {
             ProtocolLibrary.getProtocolManager().sendServerPacket(seer, packet);
         } catch (InvocationTargetException e) {
-            e.printStackTrace();
+            logMessage(Level.SEVERE, "Failed to send entity destroy packet!", e);
         }
     }
 
@@ -138,7 +140,42 @@ public class ProtocolLibPacketHandler extends PacketAdapter implements IPacketHa
         try {
             ProtocolLibrary.getProtocolManager().sendServerPacket(seer, packet);
         } catch (InvocationTargetException e) {
-            e.printStackTrace();
+            logMessage(Level.SEVERE, "Failed to send named entity spawn packet!", e);
+        }
+    }
+
+    @Override
+    public void sendEntityEquipmentPacket(Player playerToSpawn, Player seer) {
+        int entityID = playerToSpawn.getEntityId();
+        if (playerToSpawn.getInventory().getItemInMainHand() != null) {
+            doEquipmentPacketSend(entityID, EnumWrappers.ItemSlot.MAINHAND, playerToSpawn.getInventory().getItemInMainHand(), seer);
+        }
+        if (playerToSpawn.getInventory().getItemInOffHand() != null) {
+            doEquipmentPacketSend(entityID, EnumWrappers.ItemSlot.OFFHAND, playerToSpawn.getInventory().getItemInOffHand(), seer);
+        }
+        if (playerToSpawn.getInventory().getBoots() != null) {
+            doEquipmentPacketSend(entityID, EnumWrappers.ItemSlot.FEET, playerToSpawn.getInventory().getBoots(), seer);
+        }
+        if (playerToSpawn.getInventory().getLeggings() != null) {
+            doEquipmentPacketSend(entityID, EnumWrappers.ItemSlot.LEGS, playerToSpawn.getInventory().getLeggings(), seer);
+        }
+        if (playerToSpawn.getInventory().getChestplate() != null) {
+            doEquipmentPacketSend(entityID, EnumWrappers.ItemSlot.CHEST, playerToSpawn.getInventory().getChestplate(), seer);
+        }
+        if (playerToSpawn.getInventory().getHelmet() != null) {
+            doEquipmentPacketSend(entityID, EnumWrappers.ItemSlot.HEAD, playerToSpawn.getInventory().getHelmet(), seer);
+        }
+    }
+
+    private void doEquipmentPacketSend(int entityID, EnumWrappers.ItemSlot slot, ItemStack itemStack, Player recipient) {
+        PacketContainer packet = ProtocolLibrary.getProtocolManager().createPacket(PacketType.Play.Server.ENTITY_EQUIPMENT);
+        packet.getIntegers().write(0, entityID);
+        packet.getItemSlots().write(0, slot);
+        packet.getItemModifier().write(0, itemStack);
+        try {
+            ProtocolLibrary.getProtocolManager().sendServerPacket(recipient, packet);
+        } catch (InvocationTargetException e) {
+            logMessage(Level.SEVERE, "Failed to send equipment packet!", e);
         }
     }
 
@@ -147,7 +184,7 @@ public class ProtocolLibPacketHandler extends PacketAdapter implements IPacketHa
         try {
             ProtocolLibrary.getProtocolManager().sendServerPacket(seer, getScoreboardPacket(team, playerToRemove, LEAVE_SCOREBOARD_TEAM_MODE));
         } catch (InvocationTargetException e) {
-            e.printStackTrace();
+            logMessage(Level.SEVERE, "Failed to send scoreboard remove packet!", e);
         }
     }
 
@@ -156,7 +193,7 @@ public class ProtocolLibPacketHandler extends PacketAdapter implements IPacketHa
         try {
             ProtocolLibrary.getProtocolManager().sendServerPacket(seer, getScoreboardPacket(team, playerToAdd, JOIN_SCOREBOARD_TEAM_MODE));
         } catch (InvocationTargetException e) {
-            e.printStackTrace();
+            logMessage(Level.SEVERE, "Failed to send scoreboard add packet!", e);
         }
     }
 
@@ -194,5 +231,16 @@ public class ProtocolLibPacketHandler extends PacketAdapter implements IPacketHa
     @Override
     public void shutdown() {
         ProtocolLibrary.getProtocolManager().removePacketListener(this);
+    }
+
+    private void logMessage(Level level, String message, Exception e) {
+        if (level == Level.SEVERE) {
+            System.err.println("[NameTagChanger] " + message);
+        } else {
+            NameTagChanger.INSTANCE.printMessage(message);
+        }
+        if (e != null) {
+            e.printStackTrace();
+        }
     }
 }

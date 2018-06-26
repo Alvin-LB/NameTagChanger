@@ -6,12 +6,11 @@ import com.google.common.collect.Lists;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 
-import java.lang.reflect.Array;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
+import java.lang.reflect.*;
 import java.util.*;
 import java.util.logging.Level;
 
@@ -62,6 +61,12 @@ public class ChannelPacketHandler extends PacketInterceptor implements IPacketHa
     private static final Constructor<?> PACKET_ENTITY_DESTROY_CONSTRUCTOR = ReflectUtil.getConstructor(ReflectUtil.getNMSClass("PacketPlayOutEntityDestroy").getOrThrow(), int[].class).getOrThrow();
 
     private static final Constructor<?> PACKET_NAMED_ENTITY_SPAWN_CONSTRUCTOR = ReflectUtil.getConstructor(ReflectUtil.getNMSClass("PacketPlayOutNamedEntitySpawn").getOrThrow(), ReflectUtil.getNMSClass("EntityHuman").getOrThrow()).getOrThrow();
+
+    private static final Class<?> ITEM_STACK_CLASS = ReflectUtil.getNMSClass("ItemStack").getOrThrow();
+    private static final Method AS_NMS_COPY = ReflectUtil.getMethod(ReflectUtil.getCBClass("inventory.CraftItemStack").getOrThrow(), "asNMSCopy", ItemStack.class).getOrThrow();
+    private static final Class<?> ENUM_ITEM_SLOT_CLASS = ReflectUtil.getNMSClass("EnumItemSlot").getOrThrow();
+    private static final Method ENUM_ITEM_SLOT_BY_NAME = ReflectUtil.getMethodByPredicate(ENUM_ITEM_SLOT_CLASS, new ReflectUtil.MethodPredicate().withModifiers(Modifier.PUBLIC, Modifier.STATIC).withParams(String.class).withReturnType(ENUM_ITEM_SLOT_CLASS).withPredicate(method -> !method.getName().equals("valueOf")), 0).getOrThrow();
+    private static final Constructor<?> PACKET_ENTITY_EQUIPMENT_CONSTRUCTOR = ReflectUtil.getConstructor(ReflectUtil.getNMSClass("PacketPlayOutEntityEquipment").getOrThrow(), int.class, ENUM_ITEM_SLOT_CLASS, ITEM_STACK_CLASS).getOrThrow();
 
     private static final Class<?> SCOREBOARD_TEAM_PACKET_CLASS = ReflectUtil.getNMSClass("PacketPlayOutScoreboardTeam").getOrThrow();
     private static final Field SCOREBOARD_TEAM_PACKET_MODE = ReflectUtil.getDeclaredField(SCOREBOARD_TEAM_PACKET_CLASS, "i", true).getOrThrow();
@@ -166,6 +171,58 @@ public class ChannelPacketHandler extends PacketInterceptor implements IPacketHa
     public void sendNamedEntitySpawnPacket(Player playerToSpawn, Player seer) {
         Object packet = ReflectUtil.invokeConstructor(PACKET_NAMED_ENTITY_SPAWN_CONSTRUCTOR, ReflectUtil.invokeMethod(playerToSpawn, GET_HANDLE).getOrThrow()).getOrThrow();
         sendPacket(seer, packet);
+    }
+
+    @Override
+    public void sendEntityEquipmentPacket(Player playerToSpawn, Player seer) {
+        int entityID = playerToSpawn.getEntityId();
+        if (playerToSpawn.getInventory().getItemInMainHand() != null) {
+            doEquipmentPacketSend(entityID, getEnumItemSlot(EquipmentSlot.HAND), getNMSItemStack(playerToSpawn.getInventory().getItemInMainHand()), seer);
+        }
+        if (playerToSpawn.getInventory().getItemInOffHand() != null) {
+            doEquipmentPacketSend(entityID, getEnumItemSlot(EquipmentSlot.OFF_HAND), getNMSItemStack(playerToSpawn.getInventory().getItemInOffHand()), seer);
+        }
+        if (playerToSpawn.getInventory().getBoots() != null) {
+            doEquipmentPacketSend(entityID, getEnumItemSlot(EquipmentSlot.FEET), getNMSItemStack(playerToSpawn.getInventory().getBoots()), seer);
+        }
+        if (playerToSpawn.getInventory().getLeggings() != null) {
+            doEquipmentPacketSend(entityID, getEnumItemSlot(EquipmentSlot.LEGS), getNMSItemStack(playerToSpawn.getInventory().getLeggings()), seer);
+        }
+        if (playerToSpawn.getInventory().getChestplate() != null) {
+            doEquipmentPacketSend(entityID, getEnumItemSlot(EquipmentSlot.CHEST), getNMSItemStack(playerToSpawn.getInventory().getChestplate()), seer);
+        }
+        if (playerToSpawn.getInventory().getHelmet() != null) {
+            doEquipmentPacketSend(entityID, getEnumItemSlot(EquipmentSlot.HEAD), getNMSItemStack(playerToSpawn.getInventory().getHelmet()), seer);
+        }
+    }
+
+    private void doEquipmentPacketSend(int entityID, Object enumItemSlot, Object itemStack, Player recipient) {
+        Object packet = ReflectUtil.invokeConstructor(PACKET_ENTITY_EQUIPMENT_CONSTRUCTOR, entityID, enumItemSlot, itemStack).getOrThrow();
+        sendPacket(recipient, packet);
+    }
+
+    private Object getNMSItemStack(ItemStack itemStack) {
+        return ReflectUtil.invokeMethod(null, AS_NMS_COPY, itemStack).getOrThrow();
+    }
+
+    private Object getEnumItemSlot(EquipmentSlot slot) {
+        switch (slot) {
+            case HAND:
+                return ReflectUtil.invokeMethod(null, ENUM_ITEM_SLOT_BY_NAME, "mainhand").getOrThrow();
+            case OFF_HAND:
+                return ReflectUtil.invokeMethod(null, ENUM_ITEM_SLOT_BY_NAME, "offhand").getOrThrow();
+            case FEET:
+                return ReflectUtil.invokeMethod(null, ENUM_ITEM_SLOT_BY_NAME, "feet").getOrThrow();
+            case LEGS:
+                return ReflectUtil.invokeMethod(null, ENUM_ITEM_SLOT_BY_NAME, "legs").getOrThrow();
+            case CHEST:
+                return ReflectUtil.invokeMethod(null, ENUM_ITEM_SLOT_BY_NAME, "chest").getOrThrow();
+            case HEAD:
+                return ReflectUtil.invokeMethod(null, ENUM_ITEM_SLOT_BY_NAME, "head").getOrThrow();
+            default:
+                logMessage(Level.SEVERE, "Unknown EquipmentSlot: " + slot, null);
+                return null;
+        }
     }
 
     @Override

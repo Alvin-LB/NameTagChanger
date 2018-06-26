@@ -15,6 +15,8 @@ public interface IPacketHandler {
 
     void sendNamedEntitySpawnPacket(Player playerToSpawn, Player seer);
 
+    void sendEntityEquipmentPacket(Player playerToSpawn, Player seer);
+
     void sendScoreboardRemovePacket(String playerToRemove, Player seer, String team);
 
     void sendScoreboardAddPacket(String playerToAdd, Player seer, String team);
