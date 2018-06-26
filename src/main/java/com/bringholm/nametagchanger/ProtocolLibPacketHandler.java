@@ -9,6 +9,7 @@ import com.comphenix.protocol.events.PacketEvent;
 import com.comphenix.protocol.wrappers.*;
 import com.google.common.collect.Lists;
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
@@ -147,22 +148,23 @@ public class ProtocolLibPacketHandler extends PacketAdapter implements IPacketHa
     @Override
     public void sendEntityEquipmentPacket(Player playerToSpawn, Player seer) {
         int entityID = playerToSpawn.getEntityId();
-        if (playerToSpawn.getInventory().getItemInMainHand() != null) {
+        // ProtocolLib converts some ItemStacks with Material.AIR to null, causing exceptions
+        if (playerToSpawn.getInventory().getItemInMainHand() != null && playerToSpawn.getInventory().getItemInMainHand().getType() != Material.AIR) {
             doEquipmentPacketSend(entityID, EnumWrappers.ItemSlot.MAINHAND, playerToSpawn.getInventory().getItemInMainHand(), seer);
         }
-        if (playerToSpawn.getInventory().getItemInOffHand() != null) {
+        if (playerToSpawn.getInventory().getItemInOffHand() != null && playerToSpawn.getInventory().getItemInOffHand().getType() != Material.AIR) {
             doEquipmentPacketSend(entityID, EnumWrappers.ItemSlot.OFFHAND, playerToSpawn.getInventory().getItemInOffHand(), seer);
         }
-        if (playerToSpawn.getInventory().getBoots() != null) {
+        if (playerToSpawn.getInventory().getBoots() != null && playerToSpawn.getInventory().getBoots().getType() != Material.AIR) {
             doEquipmentPacketSend(entityID, EnumWrappers.ItemSlot.FEET, playerToSpawn.getInventory().getBoots(), seer);
         }
-        if (playerToSpawn.getInventory().getLeggings() != null) {
+        if (playerToSpawn.getInventory().getLeggings() != null && playerToSpawn.getInventory().getLeggings().getType() != Material.AIR) {
             doEquipmentPacketSend(entityID, EnumWrappers.ItemSlot.LEGS, playerToSpawn.getInventory().getLeggings(), seer);
         }
-        if (playerToSpawn.getInventory().getChestplate() != null) {
+        if (playerToSpawn.getInventory().getChestplate() != null && playerToSpawn.getInventory().getChestplate().getType() != Material.AIR) {
             doEquipmentPacketSend(entityID, EnumWrappers.ItemSlot.CHEST, playerToSpawn.getInventory().getChestplate(), seer);
         }
-        if (playerToSpawn.getInventory().getHelmet() != null) {
+        if (playerToSpawn.getInventory().getHelmet() != null && playerToSpawn.getInventory().getHelmet().getType() != Material.AIR) {
             doEquipmentPacketSend(entityID, EnumWrappers.ItemSlot.HEAD, playerToSpawn.getInventory().getHelmet(), seer);
         }
     }
