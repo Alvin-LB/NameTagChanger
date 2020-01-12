@@ -6,6 +6,7 @@ import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.events.PacketAdapter;
 import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.events.PacketEvent;
+import com.comphenix.protocol.reflect.FieldAccessException;
 import com.comphenix.protocol.wrappers.*;
 import com.google.common.collect.Lists;
 import org.bukkit.Bukkit;
@@ -137,7 +138,12 @@ public class ProtocolLibPacketHandler extends PacketAdapter implements IPacketHa
         }
         packet.getBytes().write(0, (byte) (playerToSpawn.getLocation().getYaw() * 256F / 360F));
         packet.getBytes().write(1, (byte) (playerToSpawn.getLocation().getPitch() * 256F / 360F));
-        packet.getDataWatcherModifier().write(0, WrappedDataWatcher.getEntityWatcher(playerToSpawn));
+        WrappedDataWatcher playerWatcher =  WrappedDataWatcher.getEntityWatcher(playerToSpawn);
+        try {
+            packet.getDataWatcherModifier().write(0, playerWatcher);
+        } catch (FieldAccessException ignored) {
+            // TODO send a separate metadata packet with that data
+        }
         try {
             ProtocolLibrary.getProtocolManager().sendServerPacket(seer, packet);
         } catch (InvocationTargetException e) {
